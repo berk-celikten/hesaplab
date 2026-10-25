@@ -1,0 +1,12 @@
+# BankFlow çalışma kuralları
+- Önce AGENTS.md ve docs/STATE.md oku; ardından yalnızca gereken kaynakları aç.
+- ROADMAP'i ihtiyaç olduğunda oku.
+- Yalnızca verilen görevi yap; sonraki özelliğe geçme. Alt ajan kullanma.
+- Küçük, okunabilir çözümler; İngilizce kod isimleri; kısa Türkçe açıklamalar kullan.
+- Gereksiz bağımlılık veya soyutlama ekleme. Kullanıcı dosyalarını koru.
+- Yazılmış kodu kullanıcının öğrendiği konu sayma.
+- Görev sonunda STATE'i güncelle; eski günlükleri büyütme.
+- Kontrolleri ve engelleri dürüstçe bildir.
+- Secret, gerçek kullanıcı bilgisi, .env, node_modules ve build çıktısını commit etme.
+- Demo hesaplar aynı müşterinindir. Gerçek para veya banka bağlantısı yoktur.
+- AGENTS, ROADMAP ve STATE ayrı ayrı en fazla 40 satır olsun.
