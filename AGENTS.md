@@ -1,4 +1,4 @@
-# BankFlow çalışma kuralları
+# HesapLab çalışma kuralları
 - Önce AGENTS.md ve docs/STATE.md oku; ardından yalnızca gereken kaynakları aç.
 - ROADMAP'i ihtiyaç olduğunda oku.
 - Yalnızca verilen görevi yap; sonraki özelliğe geçme. Alt ajan kullanma.

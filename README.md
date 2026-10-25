@@ -1,4 +1,4 @@
-# BankFlow
+# HesapLab
 Bankacılık üzerinden yazılım geliştirmeyi öğrenmek için eğitim projesi.
 Gerçek para, gerçek müşteri bilgisi veya banka bağlantısı içermez.
 
