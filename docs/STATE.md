@@ -20,14 +20,14 @@
 - berk-celikten hesabı doğrulandı; hesaplab ve bankflow-learning bulunmadı.
 - Yeni public repo oluşturuldu: https://github.com/berk-celikten/hesaplab
 - Mevcut berk-celikten/bankflow farklı uygulamadır; değiştirilmedi.
-- Yayın: yerel commit hazırlandıktan sonra main dalı gönderilecek.
+- Yayın tamamlandı; main dalı origin/main ile eşleşiyor.
 
 ## Öğrenilecekler
 - Component, JSX, props, map ve key bilgisi henüz doğrulanmadı.
 - Kullanıcının bakiye değiştirme alıştırması ve mülakat cevapları bekleniyor.
 
 ## Engeller
-- Yok; yayın sonucu gönderim sonrası doğrulanacak.
+- Yok.
 
 ## Sıradaki tek adım
 - Kullanıcının alıştırmasını ve üç mülakat sorusuna cevaplarını değerlendirmek.
