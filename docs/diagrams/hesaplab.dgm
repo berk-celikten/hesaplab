@@ -1,0 +1,40 @@
+{
+  "connectionName": "HesapLab",
+  "layout": {
+    "items": [
+      {
+        "type": "TABLE",
+        "name": "APP_USERS",
+        "schema": "HESAPLAB",
+        "bounds": {
+          "x": 50,
+          "y": 50,
+          "width": 320,
+          "height": 410
+        }
+      },
+      {
+        "type": "TABLE",
+        "name": "ACCOUNTS",
+        "schema": "HESAPLAB",
+        "bounds": {
+          "x": 530,
+          "y": 50,
+          "width": 350,
+          "height": 470
+        }
+      },
+      {
+        "type": "TABLE",
+        "name": "ACCOUNT_MOVEMENTS",
+        "schema": "HESAPLAB",
+        "bounds": {
+          "x": 1030,
+          "y": 50,
+          "width": 420,
+          "height": 650
+        }
+      }
+    ]
+  }
+}

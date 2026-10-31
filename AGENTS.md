@@ -7,6 +7,11 @@
 - Yazılmış kodu kullanıcının öğrendiği konu sayma.
 - Görev sonunda STATE'i güncelle; eski günlükleri büyütme.
 - Kontrolleri ve engelleri dürüstçe bildir.
+- Her geliştirici çıktısından sonra ilgili güncel kodu ve diff'i incele; raporu uygun kontrollerle doğrula.
+- Açıklamaları okunan koda dayandır; geliştirici raporunu kendi doğrulamalarından ayır.
+- Ayrıntılı öğrenme adımları docs/LEARNING_PLAN.md içinde; her yanıtta güncel alt adımı belirt.
 - Secret, gerçek kullanıcı bilgisi, .env, node_modules ve build çıktısını commit etme.
-- Demo hesaplar aynı müşterinindir. Gerçek para veya banka bağlantısı yoktur.
+- Demo hesapların müşteri sahibi bellidir; mevcut iki hesabın Demo Müşteri 01 sahipliğini koru. Gerçek para/banka bağlantısı yoktur.
 - AGENTS, ROADMAP ve STATE ayrı ayrı en fazla 40 satır olsun.
+- Berk'in verimlilik tercihi: kısa yanıt ve hedefli okuma; araç çıktısını sınırla, değişmeyen kontrolleri gereksiz tekrarlama. Kod incelemesini ve gerekli doğrulamayı koru.
+- Öğretimde mantık ve somut uygulama öncelikli; daha az küçük soru kullan. Kodu okuma/küçük değişiklik becerisini de zamanla kontrol et; hızlanmak öğrenilmiş saymak değildir.

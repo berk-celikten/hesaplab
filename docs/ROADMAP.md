@@ -12,3 +12,6 @@
 8. Mülakat provası: kullanıcı mimariyi ve tercihlerini kendi sözleriyle anlatır.
 
 Her aşama yalnızca kullanıcı görevlendirdiğinde açılır.
+
+Ayrıntılı 1.1, 1.2... öğrenme adımları: docs/LEARNING_PLAN.md.
+Bu dosyadaki 8 ana faz ile ayrıntılı plandaki 17 bölüm farklı ayrıntı düzeyleridir.

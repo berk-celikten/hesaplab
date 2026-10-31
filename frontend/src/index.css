@@ -12,12 +12,55 @@ body { margin: 0; min-width: 280px; }
 .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 24px max(24px, calc((100% - 1040px) / 2)); background: white; border-bottom: 1px solid #dce5e2; }
 .brand { color: #142f35; text-decoration: none; font-size: 26px; font-weight: 800; }
 .brand span { color: #087c65; }
+.header { flex-wrap: wrap; }
+.main-nav { display: flex; flex-wrap: wrap; gap: 12px; }
+.main-nav a { color: #142f35; text-decoration: none; padding: 10px 12px; border-radius: 8px; }
+.main-nav a.active { background: #eaf5ef; color: #065b4b; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.header a:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; }
+.page-title { margin-bottom: 24px; }
 .badge { color: #296758; background: #eaf5ef; padding: 6px 12px; border-radius: 20px; font-size: 13px; }
 main { max-width: 1088px; padding: 64px 24px; margin: auto; }
 .eyebrow { color: #08735e; font-size: 12px; font-weight: 700; letter-spacing: 2px; margin: 0 0 12px; }
 h1 { font-size: clamp(30px, 5vw, 42px); letter-spacing: -1px; line-height: 1.2; margin: 0; }
 .intro { color: #526a70; margin: 16px 0 32px; }
+.customer-selection { margin-bottom: 24px; }
+.selection-label { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.customer-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.customer-button { font: inherit; color: #142f35; background: #fff; border: 2px solid #b8cec6; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+.customer-button[aria-pressed="true"] { color: #fff; background: #08735e; border-color: #08735e; }
+.customer-button:hover { border-color: #142f35; }
+.customer-button:focus-visible { outline: 3px solid #142f35; outline-offset: 3px; }
+.balance-toggle { font: inherit; color: #fff; background: #08735e; border: 0; border-radius: 8px; padding: 12px 18px; margin-bottom: 24px; cursor: pointer; }
+.balance-toggle:hover { background: #065b4b; }
+.balance-toggle:disabled { background: #526a70; cursor: wait; }
+.demo-error-button { margin-left: 12px; }
+.accounts-error { border: 1px solid #a32424; border-radius: 8px; padding: 16px; margin-bottom: 24px; color: #842020; }
+.accounts-error .balance-toggle { margin-bottom: 0; }
+.balance-toggle:focus-visible { outline: 3px solid #142f35; outline-offset: 3px; }
 .account-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.account-details-link { display: inline-block; color: #065b4b; padding: 12px 4px; margin-top: 8px; font-weight: 600; text-underline-offset: 4px; }
+.account-details-link:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; border-radius: 4px; }
+.account-search { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
+.account-search label { font-weight: 600; }
+.account-search input { font: inherit; color: #142f35; border: 1px solid #78988c; border-radius: 8px; padding: 12px; width: 260px; max-width: 100%; }
+.account-search input:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; }
+.account-search p { margin: 0; color: #526a70; }
+.source-account { margin-bottom: 24px; }
+.source-account label { display: block; font-weight: 600; margin-bottom: 10px; }
+.source-account select { font: inherit; color: #142f35; background: #fff; border: 1px solid #78988c; border-radius: 8px; padding: 12px; width: 260px; max-width: 100%; }
+.source-account select:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; }
+.source-account p { color: #526a70; margin: 10px 0 0; }
+.amount-field { margin-bottom: 24px; }
+.amount-field label { display: block; font-weight: 600; margin-bottom: 10px; }
+.amount-field input { font: inherit; color: #142f35; border: 1px solid #78988c; border-radius: 8px; padding: 12px; width: 260px; max-width: 100%; }
+.amount-field input:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; }
+.amount-field p { color: #526a70; margin: 10px 0 0; overflow-wrap: anywhere; }
+.transfer-form { margin-bottom: 24px; }
+.transfer-form .field-error { color: #a32424; font-weight: 600; margin: 8px 0; }
+.transfer-form [aria-invalid="true"] { border-color: #a32424; }
+.transfer-draft { background: #eaf5ef; border: 1px solid #b8cec6; border-radius: 12px; padding: 20px; margin-bottom: 24px; overflow-wrap: anywhere; }
+.transfer-draft h2 { margin-bottom: 16px; }
+.transfer-draft p { margin: 8px 0; }
 .account-card { padding: 30px; background: white; border: 1px solid #dce5e2; border-top: 4px solid #13816b; border-radius: 16px; }
 .owner { color: #526a70; font-size: 13px; margin: 0 0 8px; }
 h2 { font-size: 22px; margin: 0 0 32px; }

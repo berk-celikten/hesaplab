@@ -1,0 +1,23 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23.26.3-slim-faststart
+    container_name: hesaplab-oracle
+    env_file:
+      - .env.local
+    ports:
+      - "127.0.0.1:1522:1521"
+    volumes:
+      - hesaplab-oradata:/opt/oracle/oradata
+    shm_size: "1g"
+    mem_limit: "3g"
+    cpus: 2
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+volumes:
+  hesaplab-oradata:
+    name: hesaplab-oradata
