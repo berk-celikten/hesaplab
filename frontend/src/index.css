@@ -12,6 +12,12 @@ body { margin: 0; min-width: 280px; }
 .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 24px max(24px, calc((100% - 1040px) / 2)); background: white; border-bottom: 1px solid #dce5e2; }
 .brand { color: #142f35; text-decoration: none; font-size: 26px; font-weight: 800; }
 .brand span { color: #087c65; }
+.session-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.session-logout { font: inherit; background: white; color: #065b4b; border: 1px solid #78988c; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+.session-logout:focus-visible { outline: 3px solid #08735e; outline-offset: 3px; }
+.login-form { max-width: 420px; }
+.login-form input { width: 100%; }
+.field-error { color: #a32424; }
 .header { flex-wrap: wrap; }
 .main-nav { display: flex; flex-wrap: wrap; gap: 12px; }
 .main-nav a { color: #142f35; text-decoration: none; padding: 10px 12px; border-radius: 8px; }

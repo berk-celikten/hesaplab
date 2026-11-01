@@ -12,3 +12,5 @@ secrets/
 .DS_Store
 .idea/
 .vscode/
+backend/target/
+.tools/

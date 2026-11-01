@@ -3,46 +3,24 @@ Bankacılık üzerinden yazılım geliştirmeyi öğrenmek için eğitim projesi
 Gerçek para, gerçek müşteri bilgisi veya banka bağlantısı içermez.
 
 ## Mevcut özellikler
-- Hesaplar ilk açılışta ve tam yenilemede useEffect([]) ile yaklaşık 1000ms gecikmeli demo servisinden yüklenir; buton ayrıca manuel yenileme başlatır.
-- İlk veri yokken hesaplar/ayrıntı/transfer yüklenme mesajı gösterir; 404 beklemez. Tek hesap veri kaynağı `frontend/src/services/accountService.js` içindedir. Servis yeni liste/nesne kopyaları döndürür; App bunları accounts state'ine alır.
-- Yüklenirken buton devre dışıdır; kart/sayı/boş sonuç yerine erişilebilir yükleniyor mesajı gösterilir. Arama ve müşteri seçimi kullanılabilir.
-- Yenileme gezinme, arama, gizlilik veya transfer durumunu sıfırlamaz; müşterinin hiç hesabı olmaması ile arama eşleşmemesi ayrı açıklanır. Gerçek ağ isteği yoktur; kontrollü demo hatası ve başarılı tekrar deneme vardır.
-- Vite + React + JavaScript ile mobil uyumlu hesap özeti.
-- App, Header, AccountsPage, AccountDetailsPage, TransferPage, AccountList ve AccountCard component'leri.
-- Demo Müşteri 01: Vadesiz Hesap (10.000,00 TL) ve Birikim Hesabı (3.500,00 TL).
-- Demo Müşteri 02: Vadesiz Hesap (2.000,00 TL).
-- Butonlarla demo müşteri seçimi; seçilen müşterinin adı, hesap sayısı ve hesapları gösterilir.
-- Seçili müşterinin hesaplarında Türkçe büyük/küçük harf uyumlu hesap adı araması; sonuç sayısı ve boş sonuç açıklaması.
-- Arama metni ve gizlilik tercihi müşteri değişiminde korunur; yenilemede arama boş başlar.
-- Kaynak hesap, seçili müşterinin bütün hesaplarından açılır listeyle seçilir; arama sonuçlarından bağımsızdır.
-- Kaynak seçimi müşteri gerçekten değişince ve yenilemede boşalır; aynı müşteri, arama ve gizlilik değişiminde korunur.
-- Tutar alanı ham metni korur; gönderimde tam sayı veya virgül/noktayla bir-iki ondalık basamak, sonlu sayı ve sıfırdan büyük değer aranır.
-- Tutar kaynak/arama/gizlilik ve aynı müşteri seçiminde korunur; farklı müşteri ve yenilemede boşalır.
-- Kaynak, hedef ve ham tutar metni form gönderiminde yalnızca tarayıcıda transfer taslağı olarak önizlenir.
-- Hedefler kaynak dışındaki bütün demo hesaplardır. Alan değişince taslak kaldırılır; farklı müşteri formu temizler.
-- Gönderimde boş kaynak/hedef ve boş veya yalnız boşluk tutar için alan hataları birlikte gösterilir; eksik alanlarla taslak oluşmaz.
-- Alan düzenlenince hatalar ve taslak temizlenir; farklı müşteri formu da temizler. Arama/gizlilik ve aynı müşteri mevcut durumu korur.
-- Kenar boşlukları yalnız doğrulamada yok sayılır; binlik ayırıcı, işaret, üslü gösterim, “0” ve “abc” reddedilir. “1.00” bir ondalık yazımdır ve 1 anlamına gelir.
-- Yenilemede taslak ve hatalar yoktur. Bakiye yeterliliği veya transfer hesabı yapılmaz.
-- Bakiyeler tek butonla gizlenir/gösterilir; müşteri değişiminde görünürlük tercihi korunur.
-- Seçim ve görünürlük App state'inde tutulur; yenilemede müşteri 01 ve görünür bakiyelerle başlar.
-- Sabit örnek veriler props ve liste gösterimi ile aktarılır.
-
-Demo müşteri seçimi gerçek giriş değildir. Henüz gerçek giriş, transfer, API, React'in Oracle bağlantısı veya RabbitMQ yoktur.
-Gelecek aşamalar docs/ROADMAP.md içindedir.
+- Kullanıcı adı/parola ile giriş, HttpOnly/SameSite=Lax oturum çerezi ve çıkış; yenilemede mevcut oturum kontrol edilir.
+- CUSTOMER yalnız kendi hesaplarını görür: müşteri 01 için 10.000,00 / 3.500,00 TL, müşteri 02 için 2.000,00 TL. Müşteri seçici kaldırıldı.
+- ADMIN ayrı başlangıç ekranına gider; müşteri hesap API'sini veya transfer ekranını kullanamaz. Yönetim CRUD henüz yoktur.
+- Hesap listesi ve ayrıntı Oracle'dan, Spring Boot üzerinden alınır. Sahiplik oturumdan belirlenir ve SQL'de filtrelenir; istemci customerId parametresine güvenilmez.
+- Arama, bakiye gizliliği, yükleme, eski veriyi açıklayarak koruma ve yeniden deneme sürer; sessiz mock fallback yoktur.
+- Transfer yalnız tarayıcıda taslaktır. Kaynak/hedef kendi hesaplarıdır; hedef kaynak dışındadır. Ham tutar ve mevcut boşluk/biçim/sonluluk/pozitiflik kontrolleri korunur.
+- Alan düzenlemesi hata/taslağı temizler; menü geçişi, arama ve gizlilik formu korur. Çıkış veya bilinen 401 tüm kullanıcı ekran/state'ini kaldırır; geç kalan önceki yanıt kullanılmaz.
+- Gerçek transfer, bakiye/hareket yazımı, yönetim CRUD ve RabbitMQ yoktur. Bu yerel eğitim uygulamasının güvenlik kavramları ayrıca çalışılacaktır.
 
 ## Sayfalar ve gezinme
-- React Router 8.5.0, Declarative yaklaşım: BrowserRouter, Routes ve Route.
-- `/hesaplar`: hesap sayısı, arama, sonuç açıklaması ve kartlar.
-- `/hesaplar/:accountId`: listedeki “Ayrıntıları gör” bağlantısıyla hesap adı/sahibi/bakiyesi; gizlilik korunur.
-- Ayrıntı kimliği useParams ile okunur ve yalnız seçili müşterinin bütün hesaplarında aranır; arama filtresinden bağımsızdır.
-- Geçersiz veya diğer müşterinin kimliği aynı bulunamadı açıklamasını gösterir. Bu demo görünüm kontrolüdür, gerçek yetkilendirme değildir.
-- URL müşteriyi değiştirmez: customer-02 seçiliyken açılan checking-02 adresi yenilenirse başlangıç müşterisi 01 olur ve hesap bulunamaz.
-- `/transfer`: kaynak/hedef/tutar formu, doğrulama ve taslak önizlemesi.
-- `/`, replace ile `/hesaplar` adresine yönlenir; bilinmeyen adres dönüş bağlantılı hata sayfası gösterir.
-- Menü ve marka bağlantıları tam yenileme yapmaz. Ortak state ve form handler'ları App'te kalır; sayfalar props alır. Ayrıntı hesabı AccountDetailsPage içinde URL kimliği ve customerAccounts üzerinden bulunur.
-- Menü ve tarayıcı geri/ileri gezinmesi mevcut değerleri korur. Doğrudan açma/yenileme, aynı adreste başlangıç state'lerini yükler.
-- Vite yerel sunucusu doğrudan adresleri destekler. İleride statik sunucuda bilinmeyen yolların index.html'e yönlendirilmesi gerekir.
+- React Router 8.5.0, BrowserRouter/Routes/Route; giriş gerektiren sayfalar oturum kontrolünden sonra açılır.
+- `/hesaplar`: hesap sayısı, arama ve kartlar. `/hesaplar/:accountId`: useParams kimliğiyle backend'den yalnız kendi hesabının ayrıntısı.
+- Başkasının, bulunmayan veya geçersiz hesabın kimliği aynı 404 mesajını verir. URL kullanıcıyı değiştirmez; arama ayrıntı erişimini etkilemez.
+- Oracle kimlikleri metindir; checking/savings/checking-02 gibi eski adresler eşleşmez. Yenileme mevcut oturumu korur; arama/form/gizlilik varsayılanına döner.
+- `/transfer`: yalnız taslak formu. `/admin`: yönetici başlangıcı. ADMIN müşteri yollarından `/admin` adresine yönlenir.
+- CUSTOMER için `/`, replace ile `/hesaplar` olur; bilinmeyen yol dönüş bağlantılı 404 gösterir.
+- App oturumun sahibidir; CustomerApp müşteri hesap/tercih/form state'ini tutar. Logout ile unmount, yeni kullanıcıda yeni state oluşmasını sağlar. Sayfalar props alır.
+- Link/NavLink tam yenileme yapmaz; doğrudan adresleri yerel Vite sunucusu destekler. Statik yayında SPA yönlendirmesi gerekir.
 
 ## Çalıştırma
 Node 24.19.0 ve npm 11.17.0 ile kurulmuştur.
@@ -81,9 +59,9 @@ npm run lint
 Build önizlemesi: `npm run preview`.
 package-lock.json sürümlenir; bağımlılıklar ve derleme çıktıları sürümlenmez.
 
-İlk yükleme Effect cleanup işlemi yerel ignore bayrağını değiştirir; eski çalışmanın sonuç ve finally state güncellemeleri atlanır. Bu, zamanlayıcıyı/isteği iptal etmez. StrictMode korunur; geliştirmede ek setup → cleanup → setup döngüsü olabilir. Normal gezinme ilk yüklemeyi yeniden başlatmaz.
+Hesap yükleme Effect cleanup işlemi yerel ignore bayrağını değiştirir; eski çalışmanın sonuç ve finally state güncellemeleri atlanır. Bu, zamanlayıcıyı/isteği iptal etmez. StrictMode korunur; geliştirmede ek setup → cleanup → setup döngüsü olabilir. Normal gezinme ilk yüklemeyi yeniden başlatmaz.
 
-5.7.1: Hesaplarım ekranındaki “Demo hatasını dene” deterministik hata üretir; “Tekrar dene” ve normal yenileme başarı yolunu çağırır. Hata erişilebilir mesajla gösterilir. Önceki veri varsa korunup eski veri olduğu açıklanır; veri yoksa ayrıntı/form/boş sonuç yerine hata gösterilir. Yeni denemede hata temizlenir; istek sürerken yükleme butonları devre dışıdır. İlk yükleme normalde başarılıdır.
+5.7.1 davranışı korundu: “Demo hatasını dene (simülasyon)” açık istemci hata simülasyonudur; “Tekrar dene” ve normal yenileme gerçek API'yi çağırır. Hata erişilebilir mesajla gösterilir. Önceki veri varsa korunup eski veri olduğu açıklanır; veri yoksa ayrıntı/form/boş sonuç yerine hata gösterilir. Yeni denemede hata temizlenir; istek sürerken yükleme butonları devre dışıdır. İlk yükleme normalde başarılıdır.
 
 ## Oracle veri modeli ve yerel çalışma ortamı (6.1–6.7)
 - `db/oracle/01_schema.sql`: Oracle 19c için kullanıcı/hesap tabloları, identity kimlikler ve temel kısıtlar.
@@ -93,7 +71,7 @@ package-lock.json sürümlenir; bağımlılıklar ve derleme çıktıları sür�
 - `db/oracle/compose.yaml`: HesapLab'a özel konteyner/veri alanı; bağlantı `127.0.0.1:1522/FREEPDB1`, kullanıcı `HESAPLAB`. Parolalar Git dışında kalan `.env.local` dosyasındadır. Başlatma/durdurma ayrıntıları model belgesinde.
 - `db/oracle/03_read_queries.sql`: kullanıcı ve hesap kayıtlarını gösteren salt okunur sorgular.
 - Grafik arayüzü: VS Code içindeki resmî Oracle SQL Developer 26.3.0; `Connections → HesapLab → Tables → APP_USERS/ACCOUNTS → Data`. ER için [hesaplab.dgm](docs/diagrams/hesaplab.dgm) dosyasını açın; gerekirse `Fit to Screen` kullanın. Önceki iki tablo/FK görünümü doğrulandı; 7.2 ile native dosyaya üçüncü tablo eklendi. Eski PNG yalnız kullanıcı/hesap modelini gösterir. Model belgesinde ayrıca statik ER resmi bulunur.
-- React demo kimlikleri ve verileri korunur; bu dosyalar arayüze bağlı değildir. Hazırlık, konuların öğrenildiği anlamına gelmez.
+- Şema/seed dosyaları manuel hazırlık içindir; uygulama açılışında çalıştırılmaz. React veriyi aşağıda açıklanan Spring Boot API üzerinden alır. Hazırlık, konuların öğrenildiği anlamına gelmez.
 
 ## İlk SELECT alıştırmaları (6.8.1)
 `db/oracle/04_select_exercises.sql`, tek hazır SELECT ve Berk'in yazacağı üç yorum/TODO içerir; çözümler eklenmedi.
@@ -138,3 +116,100 @@ COMMIT değişiklikleri kalıcılaştırır; bu alıştırmada çalıştırılma
 
 Geliştirici mevcut Oracle'da ayrı SQL*Plus oturumunda doğruladı (çıkış 0): önce kaynak/hedef 10000/2000 ve 3 hareket; geçici 9800/2200 ve 2 yeni hareket (DEBIT/CREDIT, amount 200, balance_after 9800/2200); başarı rollback'i sonrası 10000/2000 ve 3 hareket. Hata öncesi kaynak 9800, hata rollback'i sonrası 10000/2000 ve 3 hareket. Başlangıç/son sorgularında Birikim 3500 ve mevcut hareketlerin bütün sütunları korundu. Hazırlık ve geliştirici kontrolü, Berk'in transaction/rollback'i öğrendiği anlamına gelmez.
 Kaynak: [Oracle 19c — ROLLBACK](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/ROLLBACK.html), [statement-level rollback](https://docs.oracle.com/en/database/oracle/oracle-database/19/zzpre/defining-controlling-transactions.html).
+
+## İki oturumla satır kilidi (7.6–7.7)
+Kullanıcının açık worksheet'lerini kullanmayın. İki sekme, iki Oracle oturumu demek değildir; çıktılardaki SID ve SESSIONID değerlerini karşılaştırın. Bu örnek veri değiştirmez, yalnız `accounts` içindeki hedef satırı kilitler; kullanıcı alt sorgusunda kilit alınmaz.
+
+Proje kökünde bir kez hazırlayın (kopyalar konteynerin geçici dizinindedir):
+
+```powershell
+Get-Content -Raw db/oracle/10_lock_session_a.sql | docker exec -i hesaplab-oracle bash -c 'cat > /tmp/hesaplab-lock-a.sql'
+Get-Content -Raw db/oracle/11_lock_session_b.sql | docker exec -i hesaplab-oracle bash -c 'cat > /tmp/hesaplab-lock-b.sql'
+```
+
+**İki ayrı terminalde** aşağıdaki komutu ayrı ayrı çalıştırın; her çağrı yeni SQL*Plus/Oracle bağlantısı açar. Parola mevcut konteyner ortamından alınır, ekrana yazılmaz.
+
+```powershell
+docker exec -it -e NLS_LANG=.AL32UTF8 hesaplab-oracle bash -c 'exec sqlplus -s "$APP_USER/$APP_USER_PASSWORD@//localhost:1521/FREEPDB1"'
+```
+
+1. A terminalinde `@/tmp/hesaplab-lock-a.sql` çalıştırın. `A_LOCKED` ve bakiye görünür; A, PAUSE üzerinde bekler. **Henüz Enter'a basmayın.** Autocommit kapalıdır; dosya sonuna gelinip bağlantı kapanmadığı için kilit tutulur.
+2. B terminalinde `@/tmp/hesaplab-lock-b.sql` çalıştırın. SID/SESSIONID'nin A'dan farklı olduğunu doğrulayın. `B_NORMAL_SELECT` hemen sonuç verir; ardından `FOR UPDATE WAIT 5` kilit bekler.
+3. A'ya dokunmadan bekleyin. B yaklaşık 5 saniyede `B_EXPECTED_TIMEOUT` gösterir. Yerel Oracle 26ai, ORA-00054 ve altında ORA-40097 döndürdü; ORA-30006 dönüşü de açıkça karşılanır. Diğer hatalar yeniden yükseltilir. B sonunda ROLLBACK yapar.
+4. B'de aynı dosyayı tekrar çalıştırın. `B_WAIT_START` görülünce, süre dolmadan **A terminalinde Enter'a basın**. A dosyasındaki açık `ROLLBACK;` aynı A bağlantısında çalışır ve `A_RELEASED` görünür. B kilidi alır, `B_LOCKED` gösterir ve kendi ROLLBACK'iyle bırakır.
+5. İki bağlantıyı da `EXIT ROLLBACK` ile kapatın. Alıştırmadan erken çıkarsanız A'nın PAUSE'unda önce Enter'a basıp ROLLBACK'i tamamlatın; ardından yalnız demo bağlantılarını kapatın. Başka kullanıcı oturumlarını sonlandırmayın.
+6. İsteğe bağlı geçici kopya temizliği: `docker exec hesaplab-oracle rm -f /tmp/hesaplab-lock-a.sql /tmp/hesaplab-lock-b.sql`.
+
+Normal SELECT kilit istemeden tutarlı veriyi okur. SELECT FOR UPDATE satırı sonraki değişiklik için kilitler; aynı satıra kilit isteyen veya o satırı değiştirmek isteyen başka işlem bekleyebilir. Bu satır kilidi bütün okumaları veya diğer hesaplara erişimi durdurmaz. ROLLBACK kilidi bırakır; bekleme süresi tam zamanlama garantisi değildir. Kaynak: [Oracle SELECT](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html), [SQL*Plus PAUSE](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqpug/PAUSE.html).
+
+Geliştirici kontrolü: A SID=162/SESSIONID=190057, B SID=57/SESSIONID=190058. Normal SELECT bakiye=10000; ilk bekleme sunucu ölçümünde 5s, dış ölçümde 5,015s ve ORA-00054/ORA-40097. İkinci denemede A rollback'iyle B sunucu ölçümünde 1,52s, dış ölçümde 1,526s içinde kilidi aldı ve bıraktı. A_TX/B_TX=NONE; iki oturum çıkış 0 ile kapandı, geçici kopyalar temizlendi. Üç hesap ve üç hareketin tüm sütunları önce/sonra aynı; bakiyeler 10000/3500/2000. İlk deneme yalnız ORA-30006 beklediğinden sürüm farkıyla hata verdi; oturumlar kapatıldı, geçici kopyalar temizlendi ve B'nin açık hata yönetimi düzeltildikten sonra kontrol tekrarlandı. Öğrenme doğrulanmış sayılmaz.
+
+## React → Spring Boot → Oracle (9.1–9.6 / 10.1)
+Backend `backend/` içinde Java 21 hedefler. Sabit sürümler: Spring Boot **3.5.16**, Oracle **ojdbc17 23.26.4.0.0**, Maven **3.9.11** / resmî Wrapper **3.3.4**. Mevcut Microsoft OpenJDK 21.0.8 kullanıldı; yeni JDK kurulmadı ve kalıcı JAVA_HOME/PATH değiştirilmedi.
+Kaynaklar: [Spring Boot kararlı sürümler](https://docs.spring.io/spring-boot/), [Oracle JDBC / Java uyumu](https://docs.oracle.com/en/database/oracle/oracle-database/26/jjdbc/JDBC-getting-started.html), [Oracle JDBC artefaktı](https://repo.maven.apache.org/maven2/com/oracle/database/jdbc/ojdbc17/23.26.4.0.0/ojdbc17-23.26.4.0.0.pom), [Apache Maven Wrapper](https://maven.apache.org/tools/wrapper/).
+
+### Başlatma
+Mevcut `hesaplab-oracle` 127.0.0.1:1522/FREEPDB1 üzerinde çalışmalı. Git dışındaki mevcut `db/oracle/.env.local`, APP_USER ve APP_USER_PASSWORD anahtarlarını içermeli; parola ekrana veya komut argümanına yazılmaz. Spring, dosyayı properties ipucuyla içe alır; ayrıca bir dotenv bağımlılığı yoktur. Şema/seed tekrar çalıştırmayın: `spring.sql.init.mode=never`, JPA ve otomatik tablo oluşturma yoktur.
+
+Bir PowerShell terminalinde proje kökünden:
+
+```powershell
+cd backend
+$env:JAVA_HOME = 'C:/Program Files/Android/openjdk/jdk-21.0.8'
+.\mvnw.cmd test package
+.\mvnw.cmd spring-boot:run
+```
+
+JAVA_HOME yalnız bu terminal oturumu içindir; başka bilgisayarda kurulu JDK 21 yolunu kullanın. Sistem Maven kurulumu gerekmez. İsteğe bağlı yardımcı: proje kökünden `.\backend\start.ps1 -JavaHome 'C:/Program Files/Android/openjdk/jdk-21.0.8'`; portun boşluğunu denetler. Güven/çalıştırma ilkelerini değiştirmeyin; script çalıştırılamıyorsa yukarıdaki doğrudan Wrapper komutlarını kullanın.
+Backend yalnız **http://127.0.0.1:8081** üzerinde dinler. 8081 doluysa başka uygulamayı kapatmayın; ayrı terminalde `$env:HESAPLAB_PORT='8082'` gibi boş bir port seçin veya yardımcıya `-Port 8082` verin.
+
+İkinci terminalde proje kökünden:
+
+```powershell
+cd frontend
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5181 --strictPort
+```
+
+Arayüz: **http://127.0.0.1:5181/hesaplar**. 5181 doluysa mevcut HesapLab sunucusunu kullanın veya başka boş port seçin; başka uygulamayı kapatmayın. Backend farklı portta çalışıyorsa Vite başlamadan `$env:HESAPLAB_API_TARGET='http://127.0.0.1:8082'` ayarlayın. Vite `/api` isteklerini backend'e yönlendirir; geniş CORS izni açılmaz. `npm run preview`, varsayılan olarak server.proxy ayarını devralır; bu görevde uçtan uca doğrulama geliştirme sunucusunda yapıldı. Kaynak: [Vite preview.proxy](https://vite.dev/config/preview-options.html#preview-proxy).
+
+### İstek ve veri akışı
+React fetch → Vite `/api` proxy → Spring Security (oturum/rol/CSRF) → AccountController → AccountService (readOnly) → AccountRepository/JdbcTemplate → Oracle.
+`GET /api/accounts` ve `GET /api/accounts/{id}` doğrulanmış CUSTOMER kimliğini kullanır; SQL'de owner_user_id koşulu vardır. Eski `/api/demo/customers` ve `/api/demo/accounts` bütün kullanıcılara kapalıdır.
+Kimlikler JSON metni, bakiye BigDecimal'dan iki ondalık basamaklı metindir; React yalnız gösterimde Türkçe biçimlendirir. Veritabanı hatası ayrıntısız 503'tür. Oturumsuz hesap isteği 401, ADMIN 403; başkasının/bulunmayan hesabı 404'tür. API HTML giriş sayfasına yönlendirmez.
+`GET /api/auth/me` yalnız id/username/name/role döndürür. Login/logout POST öncesi `/api/auth/csrf` alınır; başarıdan sonra tekrar alınarak yeni oturum tokenı oluşturulur. Token/parola kalıcı tarayıcı deposuna yazılmaz.
+
+### Önceki salt okunur entegrasyon kontrolleri (tarihsel kayıt)
+- Maven test/package: 4 test, 0 hata/başarısızlık; metin kimlik, balance JSON ve iki uçta ayrıntısız 503 kontrol edildi. Testler Oracle'a yazmaz; JDK 21 altında Mockito'nun agent uyarısı testleri engellemedi.
+- Gerçek API/proxy: 2 CUSTOMER, 3 hesap; Oracle başlangıç kayıtlarıyla id/ad/sahiplik/tutar/TRY karşılaştırıldı, ADMIN listede yok. Müşteri 01: 10000.00/3500.00; müşteri 02: 2000.00.
+- Tarayıcı: müşteri değişimi, BİRİKİM araması/boş sonuç, gizlilik, Oracle kimlikli ayrıntı ve müşteri sahipliği görünümü, ham ` 125,50 ` ile Enter taslağı, aynı müşteri koruması/farklı müşteri temizliği ve hata simülasyonu geçti. Tab kaynak select'ten hedef select'e ilerledi; Enter ile form doğrulaması çalıştı.
+- Yalnız bu görevde başlatılan backend kapatılıp yeniden açıldı: ilk boş açılış hatası, eski veri/arama/gizlilik/taslak koruması ve iki durumda retry ile toparlanma doğrulandı. Oracle ve mevcut frontend durdurulmadı.
+- Başlangıç/son Oracle snapshot'ında 3 kullanıcı/3 hesap/3 hareketin bütün sütunları aynı. Şema/seed/transaction/lock alıştırmaları tekrar çalıştırılmadı. Frontend build/lint ve diff geçti.
+- Masaüstü 1280px görünümde yatay taşma yok. **390px mobil doğrulanamadı:** tarayıcı viewport ayarını uygulamadı; ayrı Windows tarayıcı kontrolü URL doğrulanamadığı için durduruldu. Güven ayarları değiştirilmedi; bu kontrol geçmiş sayılmaz.
+- Backend/target, .tools, loglar ve mevcut env dosyası Git dışında kalır. Kodun hazırlanması Java/Spring Boot/entegrasyonun öğrenildiği anlamına gelmez; commit/push yapılmadı.
+- Yönetici incelemesi: Java/React/ayarlar/testler ve ilgili diff incelendi; 4 Maven testi/package, frontend build/lint ve diff geçti. Canlı API ve Vite proxy cevapları doğrudan Oracle SELECT ile aynı (2 müşteri, 3 hesap; id/ad/sahiplik/tutar/TRY); kayıt sayıları 3 kullanıcı/3 hesap/3 hareket. Tarayıcıda eski ilk hatadan retry, müşteri 01/02, BİRİKİM araması, gizlilik, simülasyon sonrası tercih koruması/retry, ayrıntı ve ham tutarla Enter taslağı doğrulandı. 390px gerçek viewport (innerWidth=390, clientWidth=scrollWidth=375) uygulandı; ayrıntı ve formda yatay taşma yok, kaynakta Tab hedefe geçti. Görsel kontrol geçti; geçici viewport sıfırlandı, test değerleri temizlendi. Gerçek backend kapatma/açma ve tüm sütun snapshot kontrolü bu tur tekrarlanmadı, geliştiriciye aittir. İşlevsel bulgu yok; iki eski README açıklaması düzeltildi. Commit/push yapılmadı.
+## Oturumlu giriş ve hesap sahipliği (11.1–11.4 / 11.8)
+Mevcut Java/Boot/JDBC/Wrapper sürümleri korundu; Spring Security sürümünü Boot yönetir. Kaynaklar: [CSRF](https://docs.spring.io/spring-security/reference/6.5/servlet/exploits/csrf.html), [oturum yönetimi](https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/session-management.html). Yerleşik formLogin, bcrypt ve session fixation koruması kullanılır. Çerez `HESAPLAB_SESSION`, HttpOnly, SameSite=Lax; yerel HTTP kullanılır. Bu bir üretim yayını değildir.
+
+### Tek seferlik migration ve açık parola hazırlığı
+1. Mevcut Oracle'da ayrı bağlantıyla USER_TAB_COLUMNS üzerinden APP_USERS.PASSWORD_HASH var mı inceleyin. Yoksa yalnız `db/oracle/12_user_password_hash.sql` çalıştırın. Bu projede uygulandı; tekrar çalıştırmayın. Eski şema/seed çalıştırılmaz.
+2. Backend klasöründe JDK 21 yolunu yalnız terminal için ayarlayın ve uygulamayı paketleyin:
+   ```powershell
+   $env:JAVA_HOME = 'C:/Program Files/Android/openjdk/jdk-21.0.8'
+   .\mvnw.cmd clean test package
+   & "$env:JAVA_HOME/bin/java.exe" -jar target/hesaplab-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=prepare-passwords
+   ```
+   Hazırlık ayrı bağlantıda yalnız üç mevcut demo kullanıcının NULL hash alanını doldurur, ardından kapanır. Normal başlangıç parola üretmez. Tekrarda mevcut hash/parolalar korunur; dosya kayıpsa otomatik sıfırlama yapılmaz.
+3. Yerel demo kullanıcı adı/parolaları yalnız Git dışındaki `.tools/demo-logins.local.json` dosyasından okuyup giriş ekranında kullanın. Dosyayı paylaşmayın veya terminale dökmeyin. Oracle bağlantı parolası bu parolalardan ayrıdır; veritabanında yalnız bcrypt hash bulunur.
+4. Normal başlangıç: backend içinde `.\mvnw.cmd spring-boot:run`; frontend içinde `npm run dev -- --host 127.0.0.1 --port 5181 --strictPort`. Mevcut sunucular çalışıyorsa ikinci kopya başlatmayın. Adresler: http://127.0.0.1:8081 ve http://127.0.0.1:5181.
+
+### Bu görevin gerçek doğrulamaları
+- Maven clean test/package: Security filtre zinciri dahil 10 test, 0 başarısızlık/hata. Frontend build/lint ve diff kontrolü geçti.
+- Gerçek API: anonim 401; yanlış kullanıcı/parola aynı 401; CSRF olmadan login/logout 403; taze tokenla başarı. Girişte session kimliği değişti, eski CSRF reddedildi; logout sonrası eski oturum 401. Hassas değerler kayda yazılmadı.
+- Her iki CUSTOMER yalnız kendi 2/1 hesabını aldı. İstemci kimlik parametresi sahipliği değiştirmedi; yabancı/bulunmayan/geçersiz ayrıntı aynı 404. ADMIN 403; eski toplu demo uçları herkes için kapalı.
+- Tarayıcı: yanlış giriş, yenilemede oturum, arama/gizlilik/ayrıntı, kendi hesaplarıyla ham tutarlı Enter taslağı; aynı tarayıcıda çıkış→diğer müşteri, admin ayrımı ve 401 sonrası eski verinin kaldırılması geçti.
+- Geçici gecikmeyle eski müşterinin başarılı yanıtı bekletildi; çıkış/yeni girişten sonra eski hesap görünmedi. Test kodu kaldırıldı. 390px görünüm ve Tab/ok/Enter kontrolü, clientWidth=scrollWidth ile taşmasız form/ayrıntı doğrulandı.
+- Ayrı bağlantıda migration ve hazırlık uygulandı; ikinci hazırlık 0 güncelleme yaptı, hash'ler ve yerel dosya değişmedi. Son Oracle snapshot: eski kullanıcı alanları, üç hesabın ve üç hareketin bütün sütunları başlangıçla aynı (9 kayıt); bakiyeler 10000/3500/2000.
+- Oracle/diğer uygulamalar durdurulmadı; yalnız HesapLab backend'i yeniden başlatılarak geçersiz oturum kontrol edildi. Backend/frontend çalışır bırakıldı. Terminal alıştırmaları bu görevde tekrar edilmedi. Commit/push yapılmadı; kod hazırlanması öğrenme kanıtı değildir.
+
+11.1–11.4/11.8 yönetici incelemesi: kaynaklar/ayarlar/migration/testler ve ilgili diff okundu. Maven 10 test/package, frontend build/lint geçti. Gerçek API ayrı cookie oturumlarında 401/403/404, aynı yanlış giriş cevabı, CSRF, session değişimi, eski oturumun reddi, 2/1 sahiplik, ownerId parametresi ve kapalı demo uçlarını doğruladı. API öncesi/sonrası 3 kullanıcı (hash dahil)/3 hesap/3 hareket tüm sütunları aynı; Git adaylarında yerel parolalar yok. UI müşteri01→02→admin→01, oturumla yenileme, yabancı hesap404, buton/Enter ve 390px giriş/hesap ekranı-klavye geçti; viewport sıfırlandı, test oturumları kapandı. P2: admin çıkışından sonra müşteri girişi /admin üzerinde 404 veriyordu; App.jsx başarılı login için role göre başlangıç adresine yönlendirilerek düzeltildi, aynı senaryo ve build/lint yeniden geçti. İlk genel giriş hatası temiz yüklemeden sonra tekrarlanmadı; nedeni doğrulanmadı. Gecikmiş yanıt ve parola hazırlığı tekrarı bu tur tekrarlanmadı, geliştirici kanıtıdır. Java/Security öğrenimi doğrulanmadı; commit/push yok.

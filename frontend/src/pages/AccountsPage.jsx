@@ -15,12 +15,12 @@ export default function AccountsPage({
     <>
       <p className="eyebrow">HESAP ÖZETİ</p>
       <h1>Hesaplarım</h1>
-      <p className="intro">{selectedCustomer.name}{!isLoadingAccounts && !isInitialError && ` · ${customerAccounts.length} hesap, tek bir yerde.`}</p>
+      <p className="intro">{selectedCustomer?.name}{!isLoadingAccounts && !isInitialError && ` · ${customerAccounts.length} hesap, tek bir yerde.`}</p>
       <button className="balance-toggle" type="button" onClick={() => handleReloadAccounts(false)} disabled={isLoadingAccounts}>
         Hesapları yeniden yükle
       </button>
       <button className="balance-toggle demo-error-button" type="button" onClick={() => handleReloadAccounts(true)} disabled={isLoadingAccounts}>
-        Demo hatasını dene
+        Demo hatasını dene (simülasyon)
       </button>
       <div className="account-search">
         <label htmlFor="account-search">Hesap adı ara</label>
@@ -34,7 +34,7 @@ export default function AccountsPage({
       ) : visibleAccounts.length === 0 ? (
         <p>Aramanıza uygun hesap bulunamadı.</p>
       ) : (
-        <AccountList accounts={visibleAccounts} showBalances={showBalances} customerName={selectedCustomer.name} />
+        <AccountList accounts={visibleAccounts} showBalances={showBalances} customerName={selectedCustomer?.name ?? ''} />
       )}
     </>
   )

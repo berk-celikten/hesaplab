@@ -12,8 +12,8 @@ Bir satır tek kullanıcıyı veya tek hesabı temsil eder. Sütun o kaydın bir
 
 Her tablonun `id` sütunu primary key'dir: her satırı benzersiz tanımlar.
 `NUMBER GENERATED ALWAYS AS IDENTITY` sayesinde kimliği Oracle üretir; seed kimlik vermez.
-Bu sayısal kimlikler React'teki `checking`, `savings`, `checking-02` ve `customer-01/02`
-demo kimliklerinden ayrıdır; React verileri ve kimlikleri değiştirilmedi.
+API bu sayısal Oracle kimliklerini JSON metni olarak taşır; React seçim ve URL'lerinde aynı kimlikler kullanılır.
+Eski checking/savings/checking-02 ve customer-01/02 demo kimliklerine sabit eşleme yoktur.
 
 ```mermaid
 erDiagram
@@ -24,6 +24,7 @@ erDiagram
         VARCHAR2 username UK
         VARCHAR2 display_name
         VARCHAR2 role
+        VARCHAR2 password_hash
     }
     accounts {
         NUMBER id PK
@@ -47,8 +48,8 @@ erDiagram
 Bir kullanıcı sıfır veya daha çok hesaba sahip olabilir; her hesap bir kullanıcıya bağlıdır.
 SQL dosyasından hazırlanıp görsel olarak kontrol edilen [ER resmi](diagrams/hesaplab-er.png) yalnız önceki iki tabloyu (app_users/accounts) ve aralarındaki ilişkiyi gösterir; account_movements içermez ve canlı veritabanı görünümü değildir.
 Foreign key kullanıcının varlığını sağlar; rolünün CUSTOMER olduğunu tek başına garanti etmez.
-Rol denetimi sonraki backend konusudur. `role` kısıtı yalnız CUSTOMER/ADMIN değerlerini kabul eder.
-Demo admin'e hesap veya transfer yetkisi atanmadı; parola ve gerçek giriş sistemi yoktur.
+`role` kısıtı yalnız CUSTOMER/ADMIN değerlerini kabul eder. Spring Security CUSTOMER rolünü, hesap sorguları oturum sahibini SQL koşuluyla denetler. Foreign key tek başına bu yetki denetimini yapmaz.
+Demo admin yalnız başlangıç ekranına erişir; müşteri hesap uçlarına ve transfere erişimi yoktur. Ayrı 12_user_password_hash.sql migration'ı nullable VARCHAR2(100 CHAR) sütunu ekler; açık hazırlık komutu yalnız eksik bcrypt hash'lerini doldurur. Normal başlangıç parola değiştirmez. Yerel parola dosyası Git dışındadır; README hazırlık adımlarını açıklar. Native dgm ve eski PNG bu yeni sütundan önceki şema görünümüdür; bu Mermaid güncel sütunu içerir.
 
 ## Para ve demo sahipliği
 
@@ -86,7 +87,7 @@ docker compose -p hesaplab-oracle -f db/oracle/compose.yaml stop
 İlk kurulum dosyaları boş şemaya bir kez uygulanır; mevcut şemada tekrar çalıştırılmamalıdır.
 `03_read_queries.sql` salt okunur sorgular içerir ve tekrar çalıştırılabilir.
 Gerçek sorgular üç kullanıcı ve üç hesabı; 10000.00, 3500.00 ve 2000.00 TRY tutarlarını doğruladı.
-React henüz Oracle'a bağlı değildir; mevcut demo servisi korunur.
+React artık salt okunur Spring Boot API üzerinden bu Oracle kayıtlarını okur; statik demo listesi kullanılmaz. API tablo, bakiye veya hareket değiştirmez.
 
 ## Grafik arayüzü: VS Code içinde Oracle SQL Developer
 
