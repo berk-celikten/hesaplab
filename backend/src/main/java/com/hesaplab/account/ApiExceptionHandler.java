@@ -9,6 +9,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(com.hesaplab.transfer.TransferService.Rejected.class)
+    public ResponseEntity<ErrorDto> transferRejected(RuntimeException error) {
+        return ResponseEntity.badRequest().body(new ErrorDto(error.getMessage()));
+    }
+    @ExceptionHandler(org.springframework.dao.PessimisticLockingFailureException.class)
+    public ResponseEntity<ErrorDto> locked() {
+        return ResponseEntity.status(409).body(new ErrorDto("Hesap şu anda kullanımda. İşlem yapılmadı; daha sonra tekrar deneyin."));
+    }
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorDto> invalidBody() {
+        return ResponseEntity.badRequest().body(new ErrorDto("Geçersiz transfer isteği."));
+    }
     public record ErrorDto(String message) { }
     @ExceptionHandler(AccountService.AccountNotFoundException.class)
     public ResponseEntity<ErrorDto> accountNotFound() {

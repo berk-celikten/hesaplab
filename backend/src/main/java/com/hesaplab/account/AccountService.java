@@ -15,4 +15,7 @@ public class AccountService {
         if (!accountId.matches("[0-9]{1,38}")) { throw new AccountNotFoundException(); }
         return repository.findOwnedAccount(accountId, ownerId).orElseThrow(AccountNotFoundException::new);
     }
-}
+    public List<MovementDto> getMovements(String accountId, String ownerId) {
+        getAccount(accountId, ownerId); // Boş geçmiş ile erişilemeyen hesap farklıdır.
+        return repository.findMovements(accountId, ownerId);
+    }}

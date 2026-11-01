@@ -1,3 +1,4 @@
+import AccountMovements from '../components/AccountMovements.jsx'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import AccountCard from '../components/AccountCard.jsx'
@@ -27,8 +28,9 @@ export default function AccountDetailsPage({ userId, onUnauthorized, customerNam
     <>
       <h1 className="page-title">Hesap ayrıntısı</h1>
       {loading ? <p role="status">Hesap yükleniyor…</p> : account ? (
-        <AccountCard name={account.name} balance={account.balance}
+        <><AccountCard name={account.name} balance={account.balance}
           customerName={customerName} showBalances={showBalances} />
+        <AccountMovements key={`${userId}:${accountId}`} accountId={accountId} userId={userId} showBalances={showBalances} onUnauthorized={onUnauthorized} /></>
       ) : (
         <div>
           <p role="alert">{result.error}</p>

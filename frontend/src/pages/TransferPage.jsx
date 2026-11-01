@@ -1,4 +1,5 @@
 export default function TransferPage({
+  isSending, transferMessage, handleTransfer,
   sourceAccountId,
   targetAccountId,
   amountText,
@@ -19,6 +20,7 @@ export default function TransferPage({
   return (
     <>
       <h1 className="page-title">Transfer taslağı</h1>
+      <fieldset disabled={isSending} style={{ border: 0, padding: 0, minWidth: 0 }}>
       <form className="transfer-form" onSubmit={handleDraftSubmit} aria-label="Transfer taslak formu">
         <div className="source-account">
           <label htmlFor="source-account">Kaynak hesap</label>
@@ -54,12 +56,16 @@ export default function TransferPage({
         </div>
         <button className="balance-toggle" type="submit">Taslağı göster</button>
       </form>
+      </fieldset>
+      {transferMessage && <p role="status">{transferMessage}</p>}
+      {isSending && <p role="status">Transfer işleniyor…</p>}
       {transferDraft && (
         <section className="transfer-draft" aria-label="Transfer taslağı">
           <h2>Transfer taslağı</h2>
           <p>Kaynak: {draftSource ? `${draftSourceCustomerName} · ${draftSource.name}` : 'Seçilmedi'}</p>
           <p>Hedef: {draftTarget ? `${draftTargetCustomerName} · ${draftTarget.name}` : 'Seçilmedi'}</p>
           <p>Tutar: {transferDraft.amountText.trim() === '' ? 'Girilmedi' : `${transferDraft.amountText} TL`}</p>
+          <button className="balance-toggle" type="button" disabled={isSending} onClick={handleTransfer}>Transferi gerçekleştir</button>
         </section>
       )}
     </>

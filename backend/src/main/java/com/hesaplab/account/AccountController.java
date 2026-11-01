@@ -21,4 +21,7 @@ public class AccountController {
     public AccountDto account(@PathVariable String id, @AuthenticationPrincipal AppUserDetails principal) {
         return service.getAccount(id, principal.user().id());
     }
-}
+    @GetMapping("/{accountId}/movements")
+    public List<MovementDto> movements(@PathVariable String accountId, @AuthenticationPrincipal AppUserDetails principal) {
+        return service.getMovements(accountId, principal.user().id());
+    }}

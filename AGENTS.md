@@ -14,4 +14,4 @@
 - Demo hesapların müşteri sahibi bellidir; mevcut iki hesabın Demo Müşteri 01 sahipliğini koru. Gerçek para/banka bağlantısı yoktur.
 - AGENTS, ROADMAP ve STATE ayrı ayrı en fazla 40 satır olsun.
 - Berk'in verimlilik tercihi: kısa yanıt ve hedefli okuma; araç çıktısını sınırla, değişmeyen kontrolleri gereksiz tekrarlama. Kod incelemesini ve gerekli doğrulamayı koru.
-- Öğretimde mantık ve somut uygulama öncelikli; daha az küçük soru kullan. Kodu okuma/küçük değişiklik becerisini de zamanla kontrol et; hızlanmak öğrenilmiş saymak değildir.
+- Berk için güncel tercih: her büyük özelliği tamamla/incele, ardından mevcut kod üzerinden kısa ve somut bir akış anlatımı yap; çok sayıda küçük soru ile ilerlemeyi bölme. Ayrıntılı kod çalışması ve mülakat provası proje tamamlanınca sürer. Yazılmış kod öğrenilmiş sayılmaz.

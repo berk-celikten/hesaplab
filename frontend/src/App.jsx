@@ -77,7 +77,7 @@ export default function App() {
       {checkingSession ? <main><p role="status">Oturum kontrol ediliyor…</p></main>
         : !user ? <LoginPage onLogin={handleLogin} pending={pending} error={authError} />
           : user.role === 'ADMIN' ? <main><Routes>
-            <Route path="/admin" element={<AdminPage user={user} />} />
+            <Route path="/admin" element={<AdminPage key={user.id} user={user} onUnauthorized={handleUnauthorized} />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes></main>
             : <CustomerApp key={user.id} user={user} onUnauthorized={handleUnauthorized} />}

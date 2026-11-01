@@ -1,3 +1,4 @@
+import { sendTransfer } from './services/transferService.js'
 import { useEffect, useRef, useState } from 'react'
 
 import { Link, Navigate, Route, Routes } from 'react-router'
@@ -18,6 +19,9 @@ export default function CustomerApp({ user, onUnauthorized }) {
   const [amountText, setAmountText] = useState('')
   const [targetAccountId, setTargetAccountId] = useState('')
   const [transferDraft, setTransferDraft] = useState(null)
+  const [isSending, setIsSending] = useState(false)
+  const [transferMessage, setTransferMessage] = useState('')
+  const sendGuard = useRef(false)
   const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
@@ -79,7 +83,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
   }
 
   async function handleReloadAccounts(shouldFail = false) {
-    if (isLoadingAccounts) return
+    if (isLoadingAccounts || sendGuard.current) return
     const requests = requestVersion.current
     const version = ++requests.version
     setAccountsError('')
@@ -99,6 +103,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
   }
 
   function handleSourceAccountChange(event) {
+    if (sendGuard.current) return
     setFormErrors({})
     setSourceAccountId(event.target.value)
     if (event.target.value === targetAccountId) {
@@ -108,12 +113,14 @@ export default function CustomerApp({ user, onUnauthorized }) {
   }
 
   function handleTargetAccountChange(event) {
+    if (sendGuard.current) return
     setFormErrors({})
     setTargetAccountId(event.target.value)
     setTransferDraft(null)
   }
 
   function handleAmountChange(event) {
+    if (sendGuard.current) return
     setFormErrors({})
     setAmountText(event.target.value)
     setTransferDraft(null)
@@ -121,6 +128,8 @@ export default function CustomerApp({ user, onUnauthorized }) {
 
   function handleDraftSubmit(event) {
     event.preventDefault()
+    if (sendGuard.current) return
+    setTransferMessage('')
     const errors = {}
     if (sourceAccountId === '') {
       errors.sourceAccount = 'Lütfen kaynak hesap seçin.'
@@ -135,10 +144,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
     } else if (!/^\d+([,.]\d{1,2})?$/.test(trimmedAmount)) {
       errors.amount = amountError
     } else {
-      const amount = Number(trimmedAmount.replace(',', '.'))
-      if (!Number.isFinite(amount) || amount <= 0) {
-        errors.amount = amountError
-      }
+      if (!/[1-9]/.test(trimmedAmount)) errors.amount = amountError
     }
     setFormErrors(errors)
     if (Object.keys(errors).length > 0) {
@@ -148,6 +154,38 @@ export default function CustomerApp({ user, onUnauthorized }) {
     setTransferDraft({ sourceAccountId, targetAccountId, amountText })
   }
 
+  async function handleTransfer() {
+    if (!transferDraft || sendGuard.current) return
+    sendGuard.current = true
+    setIsSending(true)
+    setTransferMessage('')
+    const version = ++requestVersion.current.version // Önceki GET sonuçları artık kullanılamaz.
+    setIsLoadingAccounts(false)
+    const draft = transferDraft
+    setTransferDraft(null) // Sonucu belirsiz isteği de aynı taslakla tekrar göndermeyin.
+    try {
+      await sendTransfer(draft)
+      if (version !== requestVersion.current.version) return
+      setTransferMessage('Transfer tamamlandı.')
+      setAccountsError('')
+      try {
+        const updated = await getAccounts()
+        if (version !== requestVersion.current.version) return
+        setAccounts(updated)
+      } catch (error) {
+        if (version !== requestVersion.current.version) return
+        if (error.status === 401) { onUnauthorized(); return }
+        setAccountsError('Transfer tamamlandı ancak bakiyeler yenilenemedi. Hesapları yeniden yükleyin.')
+      }
+    } catch (error) {
+      if (version !== requestVersion.current.version) return
+      if (error.status === 401) { onUnauthorized(); return }
+      setTransferMessage(error.status === 0 || error.status >= 500
+        ? 'İşlemin sonucu doğrulanamadı. Tekrar göndermeden önce hesapları kontrol edin.' : error.message)
+    } finally {
+      if (version === requestVersion.current.version) { setIsSending(false); sendGuard.current = false }
+    }
+  }
   function toggleBalances() {
     setShowBalances((currentValue) => !currentValue)
   }
@@ -177,13 +215,13 @@ export default function CustomerApp({ user, onUnauthorized }) {
               isInitialError={isInitialError} />
           } />
           <Route path="/hesaplar/:accountId" element={
-            isInitialLoading ? <p role="status">Hesaplar yükleniyor…</p> : isInitialError ? null :
+            (isInitialLoading || isSending) ? <p role="status">Hesaplar yükleniyor…</p> : isInitialError ? null :
             <AccountDetailsPage userId={user.id} onUnauthorized={onUnauthorized}
               customerName={selectedCustomer?.name ?? ''} showBalances={showBalances} />
           } />
           <Route path="/transfer" element={
             isInitialLoading ? <p role="status">Hesaplar yükleniyor…</p> : isInitialError ? null :
-            <TransferPage sourceAccountId={sourceAccountId} targetAccountId={targetAccountId}
+            <TransferPage isSending={isSending} transferMessage={transferMessage} handleTransfer={handleTransfer} sourceAccountId={sourceAccountId} targetAccountId={targetAccountId}
               amountText={amountText} formErrors={formErrors} sourceAccount={sourceAccount}
               customerAccounts={customerAccounts} targetAccounts={targetAccounts}
               handleSourceAccountChange={handleSourceAccountChange} handleTargetAccountChange={handleTargetAccountChange}

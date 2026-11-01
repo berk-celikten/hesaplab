@@ -27,4 +27,15 @@ public class AccountRepository {
                 WHERE id = ? AND owner_user_id = ?
                 """, mapper, new BigDecimal(accountId), new BigDecimal(ownerId)).stream().findFirst();
     }
-}
+    public List<MovementDto> findMovements(String accountId, String ownerId) {
+        return jdbc.query("""
+                SELECT m.id, m.direction, m.amount, m.balance_after, m.description, m.created_at
+                FROM account_movements m JOIN accounts a ON a.id = m.account_id
+                WHERE a.id = ? AND a.owner_user_id = ?
+                ORDER BY m.created_at DESC, m.id DESC FETCH FIRST 50 ROWS ONLY
+                """, (row, index) -> new MovementDto(row.getString("id"), row.getString("direction"),
+                row.getBigDecimal("amount").setScale(2).toPlainString(),
+                row.getBigDecimal("balance_after").setScale(2).toPlainString(), row.getString("description"),
+                row.getObject("created_at", java.time.OffsetDateTime.class).toString()),
+                new BigDecimal(accountId), new BigDecimal(ownerId));
+    }}

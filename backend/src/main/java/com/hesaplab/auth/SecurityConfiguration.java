@@ -34,7 +34,9 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/demo/**").denyAll()
+                        .requestMatchers("/api/transfers").hasRole("CUSTOMER")
                         .requestMatchers("/api/accounts", "/api/accounts/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         .anyRequest().denyAll())
