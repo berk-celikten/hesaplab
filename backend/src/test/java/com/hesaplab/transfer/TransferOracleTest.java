@@ -19,7 +19,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties="hesaplab.outbox.enabled=false")
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named="HESAPLAB_ORACLE_TEST", matches="true")
 class TransferOracleTest {
@@ -30,11 +30,15 @@ class TransferOracleTest {
     @MockitoSpyBean TransferRepository repository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.hesaplab.receipt.ReceiptPublisher publisher;
     @Autowired com.hesaplab.receipt.ReceiptService receipts;
+    @Autowired com.hesaplab.receipt.OutboxRelay relay;
+    @MockitoSpyBean com.hesaplab.receipt.OutboxRepository outbox;
+    List<Map<String,Object>> outboxBefore;
     @MockitoSpyBean com.hesaplab.receipt.ReceiptRepository receiptRepository;
     List<Map<String,Object>> receiptsBefore;
     String username, owner, foreignOwner, source, target, foreign;
     List<Map<String,Object>> usersBefore, accountsBefore, movementsBefore, transfersBefore;
     @BeforeEach void setup() {
+        outboxBefore = jdbc.queryForList("SELECT * FROM receipt_outbox ORDER BY event_id");
         receiptsBefore = jdbc.queryForList("SELECT id,transfer_id,status,TO_CHAR(content) AS content,error_message,created_at,updated_at FROM transfer_receipts ORDER BY id");
         transfersBefore = jdbc.queryForList("SELECT * FROM transfers ORDER BY id");
         usersBefore = jdbc.queryForList("SELECT * FROM app_users ORDER BY id");
@@ -53,13 +57,15 @@ class TransferOracleTest {
         return jdbc.queryForObject("SELECT id FROM accounts WHERE owner_user_id=? AND name=?",String.class,new BigDecimal(user),name);
     }
     @AfterEach void cleanup() {
-        reset(repository, receiptRepository);
+        reset(repository, receiptRepository, outbox);
+        jdbc.update("DELETE FROM receipt_outbox WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM transfer_receipts WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM account_movements WHERE account_id IN (SELECT id FROM accounts WHERE owner_user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM transfers WHERE user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM accounts WHERE owner_user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM app_users WHERE id IN (?,?)",owner,foreignOwner);
         assertThat(jdbc.queryForList("SELECT id,transfer_id,status,TO_CHAR(content) AS content,error_message,created_at,updated_at FROM transfer_receipts ORDER BY id")).isEqualTo(receiptsBefore);
+        assertThat(jdbc.queryForList("SELECT * FROM receipt_outbox ORDER BY event_id")).isEqualTo(outboxBefore);
         assertThat(jdbc.queryForList("SELECT * FROM transfers ORDER BY id")).isEqualTo(transfersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM app_users ORDER BY id")).isEqualTo(usersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM accounts ORDER BY id")).isEqualTo(accountsBefore);
@@ -299,7 +305,8 @@ class TransferOracleTest {
         assertThatThrownBy(()->service.transfer(owner,key,request("25.5"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isZero();
         assertThat(movements()).isZero();assertThat(balance(source)).isEqualByComparingTo("100");
-        reset(repository, receiptRepository);
+        reset(repository, receiptRepository, outbox);
+        jdbc.update("DELETE FROM receipt_outbox WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM transfer_receipts WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         var result=service.transfer(owner,key,request("25.50"));
         assertThat(result.transferId()).isNotBlank();assertThat(movements()).isEqualTo(2);
@@ -349,36 +356,92 @@ class TransferOracleTest {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_movements WHERE account_id IN (?,?)",Integer.class,source,foreign)).isEqualTo(4);
         }finally{pool.shutdownNow();}
     }
-    @Test void receiptIsCreatedAtomicallyAndPublishedOnlyAfterCommit() throws Exception {
-        doAnswer(call -> {
-            String id = call.getArgument(0);
-            try (var connection = jdbc.getDataSource().getConnection();
-                 var statement = connection.prepareStatement("SELECT status FROM transfer_receipts WHERE transfer_id=?")) {
-                statement.setString(1,id);
-                try (var row=statement.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo("PENDING"); }
-            }
-            return null;
-        }).when(publisher).publish(anyString());
+
+    @Test void receiptIsCreatedAtomicallyAndPublishedOnlyByRelay() throws Exception {
         String key=UUID.randomUUID().toString();
         String id=service.transfer(owner,key,request("25.50")).transferId();
         assertThat(service.transfer(owner,key,request("25.5")).transferId()).isEqualTo(id);
-        verify(publisher,times(1)).publish(id);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfer_receipts WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
+        verifyNoInteractions(publisher);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM receipt_outbox WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
+        assertThat(relay.dispatchOne()).isTrue();
+        verify(publisher).publish(eq(id),anyString());
+        assertThat(jdbc.queryForObject("SELECT status FROM receipt_outbox WHERE transfer_id=?",String.class,id)).isEqualTo("SENT");
+        assertThat(receipts.get(owner,id).status()).isEqualTo("PENDING"); // SENT != READY
         assertThat(movements()).isEqualTo(2);
     }
 
-    @Test void receiptPublishFailureCommitsSeparateFailureStateAndCanBeRequestedAgain() throws Exception {
-        doThrow(new org.springframework.amqp.AmqpConnectException(new java.net.ConnectException("Test only"))).when(publisher).publish(anyString());
+    @Test void publishFailureLeavesDurableEventWithBackoffAndManualRequestCoalesces() throws Exception {
+        doThrow(new org.springframework.amqp.AmqpConnectException(new java.net.ConnectException("test"))).when(publisher).publish(anyString(),anyString());
         String id=service.transfer(owner,UUID.randomUUID().toString(),request("25.50")).transferId();
         assertThat(balance(source)).isEqualByComparingTo("74.50");
-        assertThat(receipts.get(owner,id).status()).isEqualTo("FAILED");
-        // JdbcTemplate burada transfer transaction'ının dışında: hata durumu kalıcıdır.
-        assertThat(jdbc.queryForObject("SELECT status FROM transfer_receipts WHERE transfer_id=?",String.class,id)).isEqualTo("FAILED");
+        verifyNoInteractions(publisher);
+        relay.dispatchOne();
+        assertThat(receipts.get(owner,id).status()).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT attempts FROM receipt_outbox WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
+        assertThat(relay.dispatchOne()).isFalse(); // Henüz yeni deneme zamanı gelmedi.
+        receipts.requestAgain(owner,"000"+id);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM receipt_outbox WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
         reset(publisher);
-        assertThat(receipts.requestAgain(owner,"000"+id).status()).isEqualTo("PENDING");
-        verify(publisher).publish(id);
+        jdbc.update("UPDATE receipt_outbox SET next_attempt_at=SYSTIMESTAMP WHERE transfer_id=?",id);
+        relay.dispatchOne();
+        jdbc.update("UPDATE transfer_receipts SET status='FAILED',error_message='Synthetic failure' WHERE transfer_id=?",id);
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            for(var future:pool.invokeAll(List.<Callable<Void>>of(()->{receipts.requestAgain(owner,id);return null;},()->{receipts.requestAgain(owner,id);return null;}))) future.get();
+        } finally {pool.shutdownNow();}
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM receipt_outbox WHERE transfer_id=?",Integer.class,id)).isEqualTo(2);
         assertThat(movements()).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isEqualTo(1);
+    }
+
+    @Test void outboxWriteErrorRollsBackEntireTransfer() throws Exception {
+        doAnswer(call -> { call.callRealMethod(); jdbc.update("UPDATE receipt_outbox SET status='INVALID' WHERE transfer_id=?",call.getArgument(0,String.class));return null; })
+            .when(outbox).enqueue(anyString());
+        assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request("25.50"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(balance(source)).isEqualByComparingTo("100");
+        assertThat(balance(target)).isEqualByComparingTo("10");
+        assertThat(movements()).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isZero();
+        verifyNoInteractions(publisher);
+    }
+
+    @Test void concurrentRelaysSkipClaimedRowOnSeparateConnections() throws Exception {
+        service.transfer(owner,UUID.randomUUID().toString(),request("25.50"));
+        var entered=new CountDownLatch(1); var release=new CountDownLatch(1);
+        doAnswer(call -> {entered.countDown();if(!release.await(10,TimeUnit.SECONDS))throw new IllegalStateException("test timeout");return null;}).when(publisher).publish(anyString(),anyString());
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            var first=pool.submit(()->relay.dispatchOne());
+            assertThat(entered.await(5,TimeUnit.SECONDS)).isTrue();
+            assertThat(pool.submit(()->relay.dispatchOne()).get(5,TimeUnit.SECONDS)).isFalse();
+            release.countDown();
+            assertThat(first.get(5,TimeUnit.SECONDS)).isTrue();
+            verify(publisher,times(1)).publish(anyString(),anyString());
+        } finally {release.countDown();pool.shutdownNow();}
+    }
+
+    @Autowired org.springframework.amqp.core.AmqpAdmin amqpAdmin;
+    @Autowired org.springframework.amqp.rabbit.core.RabbitTemplate rabbit;
+
+    @Test void confirmedPublishThenRealOracleSentFailureReplaysSameEventId() throws Exception {
+        assertThat(amqpAdmin.getQueueInfo("hesaplab.receipt.queue").getMessageCount()).isZero();
+        doAnswer(call -> {new com.hesaplab.receipt.ReceiptPublisher(amqpAdmin,rabbit).publish(call.getArgument(0),call.getArgument(1));return null;})
+            .when(publisher).publish(anyString(),anyString());
+        String id=service.transfer(owner,UUID.randomUUID().toString(),request("25.50")).transferId();
+        String event=jdbc.queryForObject("SELECT event_id FROM receipt_outbox WHERE transfer_id=?",String.class,id);
+        doAnswer(call -> {jdbc.update("UPDATE receipt_outbox SET status='INVALID' WHERE event_id=?",event);return null;}).when(outbox).sent(any());
+        assertThatThrownBy(()->relay.dispatchOne()).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(jdbc.queryForObject("SELECT status FROM receipt_outbox WHERE event_id=?",String.class,event)).isEqualTo("PENDING");
+        reset(outbox);
+        relay.dispatchOne();
+        for(int n=0;n<2;n++) {
+            var message=rabbit.receive("hesaplab.receipt.queue",5000);
+            assertThat(message).isNotNull();
+            assertThat(message.getMessageProperties().getMessageId()).isEqualTo(event);
+            assertThat(new String(message.getBody(),java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo(id);
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM receipt_outbox WHERE event_id=?",String.class,event)).isEqualTo("SENT");
+        assertThat(movements()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfer_receipts WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
     }
 
     @Test void realReceiptWriteErrorRollsBackTransferAndDoesNotPublish() throws Exception {
@@ -388,7 +451,7 @@ class TransferOracleTest {
             return null;
         }).when(receiptRepository).create(anyString());
         assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request("25.50"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
-        verify(publisher,never()).publish(anyString());
+        verify(publisher,never()).publish(anyString(),anyString());
         assertThat(balance(source)).isEqualByComparingTo("100");
         assertThat(balance(target)).isEqualByComparingTo("10");
         assertThat(movements()).isZero();
@@ -419,7 +482,7 @@ class TransferOracleTest {
         jdbc.update("UPDATE transfer_receipts SET status='READY',content='Synthetic receipt' WHERE transfer_id=?",id);
         clearInvocations(publisher);
         mvc.perform(post(url).with(user(sender)).with(csrf())).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY"));
-        verify(publisher,never()).publish(anyString());
+        verify(publisher,never()).publish(anyString(),anyString());
         mvc.perform(get("/api/accounts/"+source+"/movements").with(user(sender))).andExpect(jsonPath("$[0].receiptTransferId").value(id));
         mvc.perform(get("/api/accounts/"+foreign+"/movements").with(user(receiver))).andExpect(jsonPath("$[0].receiptTransferId").isEmpty());
         String body=mvc.perform(get(url).with(user(sender))).andReturn().getResponse().getContentAsString();

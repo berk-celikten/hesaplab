@@ -27,12 +27,12 @@ class ReceiptPublisherTest {
 
     @Test void publishesOnlyIdAsPersistentMessageWithConfirm() throws Exception {
         var admin = mock(AmqpAdmin.class);
-        new ReceiptPublisher(admin, template(true)).publish("123");
+        new ReceiptPublisher(admin, template(true)).publish("123","11111111-1111-4111-8111-111111111111");
         verify(admin).initialize();
     }
 
     @Test void nackIsNotReportedAsSuccessfulPublication() {
-        assertThatThrownBy(() -> new ReceiptPublisher(mock(AmqpAdmin.class),template(false)).publish("123"))
+        assertThatThrownBy(() -> new ReceiptPublisher(mock(AmqpAdmin.class),template(false)).publish("123","11111111-1111-4111-8111-111111111111"))
             .isInstanceOf(IllegalStateException.class);
     }
 }

@@ -29,4 +29,13 @@ class ReceiptConsumerTest {
         assertThatThrownBy(()->new ReceiptConsumer(processor).consume(message("1 OR 1=1"))).isInstanceOf(AmqpRejectAndDontRequeueException.class);
         verifyNoInteractions(processor);
     }
+
+    @Test void classifiesOnlyConnectionAndLockFailuresAsTransient() {
+        assertThat(ReceiptConsumer.transientFailure(new org.springframework.dao.CannotAcquireLockException("test"))).isTrue();
+        assertThat(ReceiptConsumer.transientFailure(new RuntimeException(new java.sql.SQLRecoverableException()))).isTrue();
+        assertThat(ReceiptConsumer.transientFailure(new java.sql.SQLException("test","",30006))).isTrue();
+        assertThat(ReceiptConsumer.transientFailure(new org.springframework.dao.EmptyResultDataAccessException(1))).isFalse();
+        assertThat(ReceiptConsumer.transientFailure(new org.springframework.dao.DataIntegrityViolationException("test"))).isFalse();
+    }
+
 }

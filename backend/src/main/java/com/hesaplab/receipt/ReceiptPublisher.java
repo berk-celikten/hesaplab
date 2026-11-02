@@ -18,10 +18,10 @@ public class ReceiptPublisher {
         this.template = template;
     }
 
-    public void publish(String transferId) throws Exception {
+    public void publish(String transferId, String eventId) throws Exception {
         admin.initialize();
         var properties = new MessageProperties();
-        properties.setMessageId(UUID.randomUUID().toString());
+        properties.setMessageId(eventId);
         properties.setContentType(MessageProperties.CONTENT_TYPE_TEXT_PLAIN);
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
         // Gövdede yalnız transfer kimliği; kişi/bakiye/oturum bilgisi yoktur.

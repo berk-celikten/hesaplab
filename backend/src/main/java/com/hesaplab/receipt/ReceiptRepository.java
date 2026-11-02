@@ -12,6 +12,9 @@ public class ReceiptRepository {
 
     public ReceiptRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
+    public void lock(String id) {
+        jdbc.queryForObject("SELECT id FROM transfer_receipts WHERE transfer_id=? FOR UPDATE WAIT 5",String.class,new BigDecimal(id));
+    }
     public void create(String transferId) {
         jdbc.update("INSERT INTO transfer_receipts (transfer_id) VALUES (?)", new BigDecimal(transferId));
     }

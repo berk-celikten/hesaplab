@@ -15,4 +15,9 @@ public class ReceiptTopology {
     @Bean Binding receiptBinding(Queue receiptQueue, DirectExchange receiptExchange) {
         return BindingBuilder.bind(receiptQueue).to(receiptExchange).with(ROUTING_KEY);
     }
+    @Bean DirectExchange receiptDeadExchange() { return new DirectExchange("hesaplab.receipt.dlx", true, false); }
+    @Bean Queue receiptDeadQueue() { return new Queue("hesaplab.receipt.dlq", true, false, false); }
+    @Bean Binding receiptDeadBinding(Queue receiptDeadQueue, DirectExchange receiptDeadExchange) {
+        return BindingBuilder.bind(receiptDeadQueue).to(receiptDeadExchange).with("hesaplab.receipt.dead");
+    }
 }

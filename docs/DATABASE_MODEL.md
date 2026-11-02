@@ -23,6 +23,7 @@ erDiagram
     accounts ||--o{ transfers : participates
     transfers |o--o{ account_movements : links
     transfers ||--o| transfer_receipts : has
+    transfers ||--o{ receipt_outbox : emits
     app_users {
         NUMBER id PK
         VARCHAR2 username UK
@@ -46,6 +47,18 @@ erDiagram
         NUMBER amount
         VARCHAR2 currency
         TIMESTAMP_WITH_TIME_ZONE created_at
+    }
+    receipt_outbox {
+        VARCHAR2 event_id PK
+        NUMBER transfer_id FK
+        NUMBER request_no
+        VARCHAR2 event_type
+        VARCHAR2 status
+        NUMBER attempts
+        TIMESTAMP_WITH_TIME_ZONE next_attempt_at
+        TIMESTAMP_WITH_TIME_ZONE created_at
+        TIMESTAMP_WITH_TIME_ZONE sent_at
+        VARCHAR2 last_error
     }
     transfer_receipts {
         NUMBER id PK
@@ -182,3 +195,10 @@ CHECK; READY için içerik ve hatasızlık, PENDING için boş içerik/hata, FAI
 Gönderici erişimi yalnız FK ile sağlanmaz: backend transfers.user_id=principal koşulunu SQL'de uygular. Alıcı bakiyesi/hareketi dekonta eklenmez. Mesaj sadece transfer kimliği taşır. Transfer commit'i ile mesaj yayını ayrı sistemlerdedir; outbox olmadığı için aradaki süreç kesintisinde dekont PENDING kalabilir. Manuel dekont isteği bu boşluğu toparlar; kayıpsız otomatik teslim garantisi yoktur.
 
 Geliştirici:34 backend/10 worker testi, gerçek kapalı-worker ve kapalı-broker HTTP senaryosu, tekrar mesaj/istek, snapshot temizliği geçti. İzole iki transfer için4 hareket/2 dekont; eski satırlar aynı. UI aracı URL doğrulamasında durdu; UI/mobil kontrol yapılmadı. Ayrıntı ve kontrol kaynakları README'de. Yeni modelin hazırlanması öğrenme teyidi değildir. Eski dgm/PNG bu tabloyu içermez; güncel Mermaid/SQL modelini kullanın.
+
+## 15.6–15.8: receipt_outbox
+15_receipt_outbox.sql metadata kontrolü sonrası ayrı bağlantıda bir kez uygulandı. event_id VARCHAR2(36) PK, transfer_id FK, request_no NUMBER(10), event_type PREPARE_RECEIPT, status PENDING/SENT, attempts NUMBER(10), next_attempt_at/created_at/sent_at TIMESTAMP WITH TIME ZONE, last_error VARCHAR2(100) içerir. UNIQUE(transfer_id,request_no) ilk işi ve sonraki açık dekont isteklerini ayırır. Function-based UNIQUE yalnız PENDING transfer_id'yi tek tutar; due index(status,next_attempt_at,created_at) taramayı destekler. CHECK: request_no>=1, attempts>=0, olay/durum sabitleri ve SENT için sent_at zorunluluğu/hatasızlık.
+
+İlk olay yeni transfer/dekontla aynı transaction'dadır; eski transfer/dekontlar için otomatik backfill yoktur. Eski bekleyen dekont kullanıcı isteğiyle olay alabilir. Sahiplik yine backend'de principal+SQL ile denetlenir. Olay kişisel veri, bakiye, parola veya oturum taşımaz; uygulama UUID'si kalıcı messageId'dir. Kalıcı claim alanı yok: relay satır kilidini publish/onay/SENT commit'ine kadar tutar, SKIP LOCKED diğer relay'i ayırır. Process/DB transaction kesilirse Oracle kilidi bırakır; olay PENDING kalır. SENT worker başarısı değildir; aynı olay birden çok teslim edilebilir. Worker READY sonucunu transfer kimliğiyle idempotent tutar.
+
+Yeni test temizliği outbox → dekont/hareket → transfer → hesap → kullanıcı sırasındadır; outbox dahil tüm eski satır/sütunlar snapshot ile karşılaştırılır. Mevcut DB verileri değiştirilmez; identity boşlukları olağandır. DGM/PNG tarihsel kapsamındadır; güncel model SQL ve Mermaid'dir. Öğrenme teyidi yoktur.

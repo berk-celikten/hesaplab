@@ -15,4 +15,11 @@ public class ReceiptTopology {
     @Bean Binding receiptBinding(Queue receiptQueue, DirectExchange receiptExchange) {
         return BindingBuilder.bind(receiptQueue).to(receiptExchange).with(ROUTING_KEY);
     }
+    @Bean
+    org.springframework.boot.autoconfigure.amqp.ConnectionFactoryCustomizer boundedReceiptRpc() {
+        return factory -> {
+            factory.setChannelRpcTimeout(3000);
+            factory.setHandshakeTimeout(3000);
+        };
+    }
 }
