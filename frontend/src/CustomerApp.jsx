@@ -1,3 +1,5 @@
+import { request } from './services/api.js'
+import TransferReceipt from './components/TransferReceipt.jsx'
 import { sendTransfer } from './services/transferService.js'
 import { useEffect, useRef, useState } from 'react'
 
@@ -21,12 +23,20 @@ export default function CustomerApp({ user, onUnauthorized }) {
   const [transferDraft, setTransferDraft] = useState(null)
   const [isSending, setIsSending] = useState(false)
   const [transferMessage, setTransferMessage] = useState('')
+  const [receiptTransferId, setReceiptTransferId] = useState(null)
   const sendGuard = useRef(false)
   const [retryTransfer, setRetryTransfer] = useState(null)
+  const [externalTarget, setExternalTarget] = useState(false)
+  const [recipientInput, setRecipientInput] = useState('')
+  const [verifiedRecipient, setVerifiedRecipient] = useState(null)
+  const [recipientLoading, setRecipientLoading] = useState(false)
+  const [recipientError, setRecipientError] = useState('')
+  const recipientVersion = useRef({ version: 0 })
   const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
     let ignore = false
+    const recipientRequests = recipientVersion.current
     const requests = requestVersion.current
     const version = ++requests.version
 
@@ -56,6 +66,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
     loadInitialAccounts()
     return () => {
       ignore = true
+      recipientRequests.version++
       requests.version++
     }
   }, [onUnauthorized, user.id])
@@ -71,14 +82,48 @@ export default function CustomerApp({ user, onUnauthorized }) {
     customerName: user.name,
   }))
   const draftSource = accounts.find((account) => account.id === transferDraft?.sourceAccountId)
-  const draftTarget = accounts.find((account) => account.id === transferDraft?.targetAccountId)
+  const draftTarget = transferDraft?.recipient || accounts.find((account) => account.id === transferDraft?.targetAccountId)
   const draftSourceCustomerName = draftSource ? user.name : ''
-  const draftTargetCustomerName = draftTarget ? user.name : ''
+  const draftTargetCustomerName = draftTarget?.customerName || (draftTarget ? user.name : '')
   const normalizedSearchTerm = searchTerm.trim().toLocaleLowerCase('tr-TR')
   const visibleAccounts = customerAccounts.filter((account) =>
     account.name.toLocaleLowerCase('tr-TR').includes(normalizedSearchTerm),
   )
 
+  function invalidateRecipient() {
+    recipientVersion.current.version++
+    setVerifiedRecipient(null)
+    setTargetAccountId('')
+    setRecipientError('')
+    setRecipientLoading(false)
+    setTransferDraft(null)
+  }
+  function handleRecipientInput(event) {
+    if (sendGuard.current) return
+    setRecipientInput(event.target.value)
+    invalidateRecipient()
+  }
+  function handleExternalTarget(event) {
+    if (sendGuard.current) return
+    setExternalTarget(event.target.checked)
+    invalidateRecipient()
+  }
+  async function verifyRecipient() {
+    if (sendGuard.current) return
+    const version = ++recipientVersion.current.version
+    setVerifiedRecipient(null); setTargetAccountId(''); setTransferDraft(null)
+    setRecipientLoading(true); setRecipientError('')
+    try {
+      const recipient = await request(`/api/recipients/${encodeURIComponent(recipientInput.trim())}`)
+      if (version !== recipientVersion.current.version) return
+      if (recipient.id === sourceAccountId) { setRecipientError('Kaynak ve hedef farklı olmalı.'); return }
+      setVerifiedRecipient(recipient); setTargetAccountId(recipient.id)
+    } catch (error) {
+      if (version !== recipientVersion.current.version) return
+      if (error.status === 401) { onUnauthorized(); return }
+      setRecipientError(error.message)
+    } finally { if (version === recipientVersion.current.version) setRecipientLoading(false) }
+  }
   function handleSearchChange(event) {
     setSearchTerm(event.target.value)
   }
@@ -106,6 +151,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
   function handleSourceAccountChange(event) {
     if (sendGuard.current) return
     setFormErrors({})
+    if (externalTarget) invalidateRecipient()
     setSourceAccountId(event.target.value)
     if (event.target.value === targetAccountId) {
       setTargetAccountId('')
@@ -135,7 +181,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
     if (sourceAccountId === '') {
       errors.sourceAccount = 'Lütfen kaynak hesap seçin.'
     }
-    if (targetAccountId === '') {
+    if (targetAccountId === '' || (externalTarget && !verifiedRecipient)) {
       errors.targetAccount = 'Lütfen hedef hesap seçin.'
     }
     const trimmedAmount = amountText.trim()
@@ -153,7 +199,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
       return
     }
     if (retryTransfer) return
-    setTransferDraft({ sourceAccountId, targetAccountId, amountText, idempotencyKey: crypto.randomUUID() })
+    setTransferDraft({ sourceAccountId, targetAccountId, amountText, recipient: externalTarget ? verifiedRecipient : null, idempotencyKey: crypto.randomUUID() })
   }
 
   async function handleTransfer(retry = false) {
@@ -167,9 +213,10 @@ export default function CustomerApp({ user, onUnauthorized }) {
     setRetryTransfer(draft)
     setTransferDraft(null) // Sonucu belirsiz isteği de aynı taslakla tekrar göndermeyin.
     try {
-      await sendTransfer(draft)
+      const completed = await sendTransfer(draft)
       if (version !== requestVersion.current.version) return
       setRetryTransfer(null)
+      setReceiptTransferId(completed.transferId)
       setTransferMessage('Transfer tamamlandı.')
       setAccountsError('')
       try {
@@ -215,6 +262,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
           <button className="balance-toggle" type="button" onClick={() => handleTransfer(true)}>Aynı isteği tekrar dene</button>
           <p>Yeni taslaktan önce bu isteğin sonucunu doğrulayın. Sayfa yenilemeyin.</p>
         </section>}
+        {receiptTransferId && <TransferReceipt key={`${user.id}:${receiptTransferId}`} transferId={receiptTransferId} userId={user.id} onUnauthorized={onUnauthorized} showBalances={showBalances} initiallyOpen />}
         <Routes>
           <Route path="/" element={<Navigate to="/hesaplar" replace />} />
           <Route path="/hesaplar" element={
@@ -231,7 +279,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
           } />
           <Route path="/transfer" element={
             isInitialLoading ? <p role="status">Hesaplar yükleniyor…</p> : isInitialError ? null :
-            <TransferPage isSending={isSending} transferMessage={transferMessage} handleTransfer={handleTransfer} sourceAccountId={sourceAccountId} targetAccountId={targetAccountId}
+            <TransferPage externalTarget={externalTarget} handleExternalTarget={handleExternalTarget} recipientInput={recipientInput} handleRecipientInput={handleRecipientInput} verifiedRecipient={verifiedRecipient} recipientLoading={recipientLoading} recipientError={recipientError} verifyRecipient={verifyRecipient} isSending={isSending} transferMessage={transferMessage} handleTransfer={handleTransfer} sourceAccountId={sourceAccountId} targetAccountId={targetAccountId}
               amountText={amountText} formErrors={formErrors} sourceAccount={sourceAccount}
               customerAccounts={customerAccounts} targetAccounts={targetAccounts}
               handleSourceAccountChange={handleSourceAccountChange} handleTargetAccountChange={handleTargetAccountChange}

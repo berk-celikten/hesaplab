@@ -8,9 +8,9 @@ Gerçek para, gerçek müşteri bilgisi veya banka bağlantısı içermez.
 - ADMIN ayrı başlangıç ekranına gider; müşteri hesap API'sini veya transfer ekranını kullanamaz. Yönetim: listeler, hesap açma, CUSTOMER oluşturma ve ad düzenleme; silme/rol-parola değiştirme/hesap kapatma yoktur.
 - Hesap listesi ve ayrıntı Oracle'dan, Spring Boot üzerinden alınır. Sahiplik oturumdan belirlenir ve SQL'de filtrelenir; istemci customerId parametresine güvenilmez.
 - Arama, bakiye gizliliği, yükleme, eski veriyi açıklayarak koruma ve yeniden deneme sürer; sessiz mock fallback yoktur.
-- Transfer taslağı ayrı onayla Oracle üzerinde gerçek işleme dönüştürülebilir. Kaynak/hedef kendi hesaplarıdır; hedef kaynak dışındadır. Ham tutar ve boşluk/biçim/pozitiflik kontrolleri korunur; parasal metin JavaScript Number dönüşümünden geçirilmez.
+- Transfer taslağı ayrı onayla Oracle üzerinde gerçek işleme dönüştürülebilir. Kaynak kendi hesabıdır; hedef kendi veya başka CUSTOMER hesabı olabilir, kaynakla aynı olamaz. Ham tutar ve boşluk/biçim/pozitiflik kontrolleri korunur; parasal metin JavaScript Number dönüşümünden geçirilmez.
 - Alan düzenlemesi hata/taslağı temizler; menü geçişi, arama ve gizlilik formu korur. Çıkış veya bilinen 401 tüm kullanıcı ekran/state'ini kaldırır; geç kalan önceki yanıt kullanılmaz.
-- Kendi hesapları arasında transfer ve bakiye/hareket yazımı vardır; tam yönetim ve RabbitMQ yoktur. Bu yerel eğitim uygulamasının güvenlik kavramları ayrıca çalışılacaktır.
+- Kendi ve başka CUSTOMER hesapları arasında transfer ve bakiye/hareket yazımı vardır; RabbitMQ/ayrı worker ile gönderen müşteriye metin dekontu hazırlanır; sentetik mesaj demosu da korunur. Tam yönetim henüz yoktur. Bu yerel eğitim uygulamasının güvenlik kavramları ayrıca çalışılacaktır.
 
 ## Sayfalar ve gezinme
 - React Router 8.5.0, BrowserRouter/Routes/Route; giriş gerektiren sayfalar oturum kontrolünden sonra açılır.
@@ -267,3 +267,116 @@ Gerçek kontroller:25 Maven testi (10 Security+15 gerçek Oracle),0 hata/skip; p
 UI'de geçici wrapper ilk gerçek başarılı yanıtı kullanmayıp kontrollü hata üretti. Bekleyen25,50 TL istek, alan99'a değiştirilse de aynı kaldı; Enter ile retry başarı, bakiyeler74,50/35,50; SQL tek transfer/iki bağlı hareket doğruladı. Bu gerçek ağ kaybı değildir; gerçek ağ kaybı sınanmadı. Simülasyon kaldırıldı, servis diskten yeniden okundu; frontend build/lint/package/diff geçti. UI kayıtları transfers dahil temizlendi; eski9 satır tüm sütunları aynı, üç açılış hareketinin transfer_id alanı NULL. AdminPage setError düzeltmesi korundu. Kod hazırlanması öğrenme teyidi değildir; commit/push yok.
 
 Yönetici13.1–13.4: migration/kaynak/ilgili diff/test/model incelendi;25 test (15 gerçek Oracle,0 skip),frontend build/lint/diff geçti. Gerçek HTTP/proxy izole ilk25.5 transferinden sonra çıkış/yeni giriş ve aynı UUID/eşdeğer id-tutar replay aynı sonucu döndürdü; farklı içerik409, eksik anahtar400; SQL tek transfer/iki bağlı hareket ve74.50/35.50 doğruladı. Test kayıtları transfers dahil temizlendi, eski9 kayıt tüm sütunları aynı. UI kontrollü hata/retry/package/mobil geliştirici kanıtıdır; bu incelemede UI veya gerçek ağ kaybı tekrarlanmadı. İşlevsel bulgu yok. Sonraki iş incelenen yönetim ikinci parça/idempotency GitHub ara kaydı; öğrenme teyidi yok.
+## Başka müşteriye transfer (10.3–10.7 / 11.5 genişletmesi)
+Önceki bölümlerdeki yalnız-kendi-hedef kuralı tarihsel aşamadır. Şimdi CUSTOMER, tam Oracle hesap kimliğiyle `GET /api/recipients/{accountId}` çağırır. DTO yalnız id/name/customerName/currency içerir; bakiye/hareket/kullanıcı adı/rol bilgisi yoktur. Geçersiz/bulunmayan/ADMIN hedef404; toplu alıcı araması yoktur. Bu numara “Demo hesap no”dur; gerçek IBAN değildir. Kendi hesap kartlarında görünür.
+Transfer ekranında mevcut kendi-hesap select'i korunur; “Demo hesap no ile alıcı doğrula” işaretlenince numara ve doğrulama düğmesi açılır. Doğrulanan alıcı/hesap adıyla taslak ve ayrı transfer onayı gerekir. Numara/mod/kaynak değişimi doğrulamayı ve taslağı kaldırır; sürüm/cleanup eski yanıtı atlar. Tutar metni/UUID idempotency ve bekleyen isteğin değişmez içeriği korunur. Başarı yalnız gönderenin hesaplarını yeniler, alıcı bakiyesi gösterilmez.
+GET doğrulaması yetki kanıtı değildir: POST sırasında kaynak sahipliği ve her iki hesap sahibinin CUSTOMER rolü SQL'de tekrar denetlenir. Kilit sorgusu dışta yalnız accounts kullanır; CUSTOMER denetimi EXISTS alt sorgusudur, FOR UPDATE OF a.balance WAIT5 kullanıcı satırlarını JOIN ile kilitlemez. İki hesap sayısal id sırasıyla kilitlenir; BigDecimal/TRY/sınırlar, tek transaction/iki hareket ve idempotency korunur. Kaynak müşteri için mevcut owner kilidi sürer; hedef kullanıcı satırı kilitlenmez. Başka kişinin hesap/ayrıntı/hareket uçları hâlâ404, ADMIN transfer/alıcı uçları403.
+Gerçek kontroller:28 Maven testi (10 Security+18 gerçek Oracle),0 hata/skip; iki müşteri25.5 transferinde74.50/45.50/toplam120/tek transfer/iki bağlı hareket; eşdeğer replay ve farklı içerik409; yabancı kaynak/geçersiz-ADMIN-aynı hedef reddi, dört alanlı alıcı DTO'su ve yabancı hesap/hareket404. Ters yönlü eşzamanlı5 ve3 transferi98/22 ve iki transfer/dört hareketle geçti. Önceki yabancı hedef reddi testi yabancı kaynak reddine çevrildi; eski güvenlik/yönetim/rollback/idempotency testleri geçti. Her test eski veriyi karşılaştırıp yalnız kendi kayıtlarını temizler.
+UI izole iki müşteri: demo no kartta, tek alıcı doğrulaması, numara düzenlemesinde eski taslak0,25,50 taslağı/ayrı Enter onayı, yalnız gönderen74,50 gösterimi,390px client=scroll375 geçti. SQL alıcı45,50/toplam120/tek transfer/iki hareket doğruladı. İzole kayıtlar transfers dahil temiz; eski9 kayıt tüm sütunları aynı. Geç alıcı yanıtı yarışı/gerçek ağ kaybı bu tur yapay olarak tetiklenmedi; sürüm ve immutable retry korumaları kaynakta incelendi. Build/lint/package/diff geçti. Yeni migration/bağımlılık, eski SQL/seed/parola hazırlığı yok. AdminPage setError korundu. Öğrenme teyidi veya commit/push yok.
+
+Yönetici10.3–10.7/11.5 çapraz müşteri incelemesi: ilgili Java/React kaynakları, güvenlik/testler ve diff okundu; 28 Maven testi (10 Security+18 gerçek Oracle,0 hata/skip),frontend build/lint/diff geçti. Gerçek UI tam demo no→alıcı doğrulama→numara değişiminde doğrulama/taslak iptali→yeniden doğrulama→25,50 taslak→ayrı POST akışını doğruladı. İzole100/20 hesapları74,50/45,50 oldu; gönderen yalnız kendi hesaplarını gördü, alıcı bakiyesi gösterilmedi. SQL tek transfer/iki bağlı DEBIT-CREDIT hareketi doğruladı. Yalnız bu inceleme kayıtları temizlendi; eski9 kayıt bütün sütunlarıyla aynı. Normal iki hesaplı müşteri01 ekranı açık bırakıldı. İşlevsel düzeltme bulgusu yok. Package/390px/Enter geliştirici kanıtıdır; bu tur tekrarlanmadı. Geç alıcı yanıtı/gerçek ağ kaybı yapay tetiklenmedi; kaynak korumaları incelendi. Öğrenme teyidi ve commit/push yok.
+## RabbitMQ ve ayrı worker (14.1–14.4)
+Yalnız sentetik metin taşınır: açık gönderim → direct exchange → routing key → durable kuyruk → ayrı worker günlüğü. Backend/frontend/Oracle ile bağlantı eklenmedi; normal başlangıç mesaj göndermez. Worker web sunucusu veya veritabanı bağlantısı açmaz.
+
+- `infra/rabbitmq/compose.yaml`: HesapLab'a özel container/volume/vhost. Resmî `rabbitmq:4.4.0-management`, doğrulanan digest ile sabit; yalnız `127.0.0.1:5673` AMQP ve `127.0.0.1:15673` yönetim arayüzü.
+- `worker/`: Java21, backend ile aynı Boot3.5.16, yönetilen Spring AMQP3.2.12; Wrapper3.3.4/Maven3.9.11. Bağımlılıklar yalnız Boot AMQP starter ve test starter.
+- Exchange `hesaplab.demo.exchange`, kuyruk `hesaplab.demo.queue`, routing key `hesaplab.demo.message`; vhost `hesaplab`. Durable exchange/kuyruk, PERSISTENT mesaj. Gönderici publisher confirm ve yönlendirilemeyen mesaj dönüşünü kontrol eder; en fazla5 saniye onay bekler. Belirsiz sonuçta otomatik tekrar yoktur.
+- Kimlik bilgileri yalnız Git dışındaki `infra/rabbitmq/.env.local` dosyasında; Compose/worker aynı dosyayı okur. `worker/target`, `.tools` ve loglar da Git dışında.
+
+### Başlatma (PowerShell)
+Docker Desktop çalışırken proje köküne geçin. Yerel kimlik dosyası bu çalışmada oluşturuldu. Yeni klonda, dosya yoksa bir kez üretin; var olan kimlikleri değiştirmeyin:
+```powershell
+Set-Location -LiteralPath 'C:/Users/berkc/Documents/ChatGPT/1react Proje ÖZet/HesapLab'
+if (-not (Test-Path infra/rabbitmq/.env.local)) {
+    $bytes = New-Object byte[] 32
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $rng.GetBytes($bytes); $rng.Dispose()
+    $rabbitPassword = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    [IO.File]::WriteAllText((Join-Path (Get-Location) 'infra/rabbitmq/.env.local'), "RABBITMQ_USER=hesaplab_demo`nRABBITMQ_PASSWORD=$rabbitPassword`n")
+    Remove-Variable rabbitPassword, bytes
+}
+docker compose --env-file infra/rabbitmq/.env.local -f infra/rabbitmq/compose.yaml up -d --wait --wait-timeout 180
+```
+Kimlik bilgileri yalnız boş broker volume'ünün ilk açılışında uygulanır; env dosyasını değiştirmek mevcut broker parolasını değiştirmez. Yönetim adresi: http://127.0.0.1:15673 (yerel dosyadaki kimlikleri kullanın, paylaşmayın).
+
+Worker terminali (çalışma dizini `worker` olmalı; env yolu buna göredir):
+```powershell
+Set-Location worker
+$env:JAVA_HOME = 'C:/Program Files/Android/openjdk/jdk-21.0.8'
+./mvnw.cmd clean test package
+& "$env:JAVA_HOME/bin/java.exe" -jar target/hesaplab-worker-0.0.1-SNAPSHOT.jar
+```
+Java yolu bu makinede doğrulandı; başka makinede kendi JDK21 yolunuzu kullanın. Değişken yalnız bu terminal içindir. Normal worker Ctrl+C ile durdurulur; backend/Oracle kapatılmaz.
+
+Başka bir terminalde, aynı `worker` dizininde **açıkça** gönderin:
+```powershell
+& 'C:/Program Files/Android/openjdk/jdk-21.0.8/bin/java.exe' -jar target/hesaplab-worker-0.0.1-SNAPSHOT.jar --spring.profiles.active=send-demo
+```
+Tek seferlik profil listener açmaz; UUID `messageId` ve `HesapLab sentetik demo mesajı.` gönderip çıkar. Her yeni komut yeni mesajdır. `DEMO_SENT messageId=...` ile worker'daki `DEMO_PROCESSED messageId=...` aynı olmalı. Burada işleme yalnız log üretir; listener başarıyla dönünce mesaj onaylanır. Gerçek müşteri verisi veya parola mesaj yapılmaz.
+
+### Worker kapalıyken gözlem ve gerçek kontrol kaydı
+1. Yalnız worker'ı Ctrl+C ile durdurun; RabbitMQ açık kalsın. Gönderim komutunu çalıştırın.
+2. Proje kökünde kuyruğu okuyun:
+   ```powershell
+   docker exec hesaplab-rabbitmq rabbitmqctl list_queues -p hesaplab name durable messages_ready messages_unacknowledged consumers
+   ```
+3. Worker kapalıyken ready1/consumers0; worker açılınca aynı kimlik logda görünür ve ready0/unacked0/consumers1 olur. Başka mesaj/worker varsa sayılar değişebilir.
+
+2026-11-02 geliştirici kontrolü: resmî4.4.0 manifest/digest, Compose config/health doğrulandı. Kapalı-worker mesajı `1695e320-9a80-4d16-a7cf-73fc7b5a7c15`: ready1/unacked0/consumers0. Yönetim API'sinden yalnız sentetik mesaj requeue edilerek delivery_mode2/kimlik/metin doğrulandı. Yalnız yeni RabbitMQ container'ı yeniden başlatıldı, ready1 korundu. Worker açılınca aynı kimlik işlendi; ready0/unacked0/consumers1. Son temiz paketle normal başlangıç mesaj üretmedi; ikinci açık gönderim `553f49d9-5ba5-4e6b-bb98-0d4ee804cf8d` aynı kimlikle işlendi. İki gönderici çıkış0. Beş worker birim testi/0 hata/skip, clean test package ve diff kontrolü geçti. Broker/worker çalışır bırakıldı. Backend/frontend/Oracle testleri bu bağımsız adımda tekrarlanmadı; DB sorgusu/yazımı veya UI testi yapılmadı.
+
+Retry/DLQ/outbox ve tüketici idempotency yoktur; yeniden teslim olabilir. İşleme hatasında requeue kapalıdır; hatalı mesaj DLQ olmadan kaybolabilir. Gerçek transfer/dekont, Oracle yazımı ve hata senaryoları sonraki görevdir. Kod hazırlanması öğrenme teyidi değildir.
+
+Resmî kaynaklar: [RabbitMQ imajı](https://hub.docker.com/_/rabbitmq), [sürümler](https://www.rabbitmq.com/release-information), [publisher onayları](https://www.rabbitmq.com/docs/publishers), [Spring AMQP gönderim](https://docs.spring.io/spring-amqp/reference/amqp/template.html). İmaj digest'i Compose dosyasında; AMQP sürümünü Boot yönetir.
+
+Yönetici14.1–14.4: dört Java sınıfı/ayarlar/POM/Compose/Wrapper/testler ve ilgili diff incelendi. Wrapper dosyaları mevcut backend kopyasıyla eşleşir. Beş worker testi0 hata/skip,Compose config/health/localhost5673-15673/volume ve diff geçti; yerel RabbitMQ parolası yeni özellik Git adaylarında yok,env/target/.tools ignored. Gerçek offline mesaj737c146d-e3c0-4b8d-a395-3a8e18ae0914 worker kapalıyken ready1/consumers0; yalnız RabbitMQ yeniden başlatılınca ready1 korundu; worker açılınca aynı kimlik işlendi,ready0/unacked0/consumers1. Canlı fdd37e38-18f0-4a99-af21-0fa8356f89d3 aynı kimlikle işlendi; normal başlangıç gönderim yapmadı. Worker yeniden çalışır bırakıldı (.tools/worker.pid güncel); backend5181/8081 dinliyor,Oracle healthy. Bu incelemede Oracle sorgusu/yazımı veya UI testi yok; clean/package geliştirici kanıtıdır. Kodda işlevsel düzeltme bulgusu yok. Şimdiki tüketici yalnız log üretir; retry/DLQ/idempotency/transfer entegrasyonu henüz yok. Öğrenme teyidi ve commit/push yok.
+
+## Asenkron metin dekontu (14.5–14.8, güncel)
+Yeni transferde tek `transfer_receipts` kaydı, transfer/bakiyeler/iki hareketle **aynı Oracle transaction'ında** oluşur. Rollback olursa dekont kaydı da yoktur ve mesaj gönderilmez. Idempotency replay mevcut transferi döndürür; ikinci dekont yaratmaz.
+
+Commit tamamlanınca backend `hesaplab.receipt.exchange` → `hesaplab.receipt.prepare` → durable `hesaplab.receipt.queue` yoluna PERSISTENT mesaj gönderir. Gövde yalnız transfer kimliğidir; mesajda parola, oturum, kişi adı veya bakiye yoktur. Önceki sentetik demo exchange/kuyruğu korunur. Normal başlangıç transfer/dekont/demo mesajı üretmez.
+
+Worker Oracle'dan transferi ve görünen adları okur; dekont satırını `FOR UPDATE WAIT 5` ile kilitleyip metni kaydeder. `READY` sonucu tekrar mesajla veya geç hata güncellemesiyle değişmez. Listener'ın AUTO onayı, işleyicinin Oracle transaction'ı commit olup metot döndükten sonradır. Worker bakiyelere/hareketlere yazmaz. Metin; transfer no/tarih, gönderen-alıcı adları, demo hesap numaraları, tutar/TRY içerir; alıcı bakiyesi veya hareketleri içermez. PDF/e-posta yoktur.
+
+| Durum | Anlamı |
+| --- | --- |
+| PENDING | Dekont bekliyor/hazırlanıyor; manuel olarak yeniden istenebilir. |
+| READY | Metin kaydedildi; tekrar istek mevcut sonucu döndürür. |
+| FAILED | Yayın veya hazırlamada sorun var; para transferinin sonucundan ayrıdır. |
+
+Yayın hatası tamamlanmış transferin HTTP başarısını bozmaz. Yayın hata kaydı, commit sonrası eski transaction'a katılmadan `REQUIRES_NEW` ile kalıcı kaydedilir. İşleme hatasında worker da ayrı transaction ile FAILED yazmayı dener; Oracle erişilemiyorsa durum PENDING kalabilir. Hata içeriği SQL/stack trace içermez.
+
+- GET `/api/transfers/{id}/receipt`: transferId/status/content/errorMessage.
+- POST aynı adres: yalnız PENDING/FAILED dekontu yeniden kuyruğa ister; yeni para transferi çalıştırmaz. READY ise mesaj üretmez.
+- Yalnız gönderen CUSTOMER; sahiplik SQL'de principal kimliğinden gelir. Alıcı/yabancı/bulunmayan/geçersiz aynı404; ADMIN403, anonim401. POST CSRF korumalıdır.
+- Başarılı transferden sonra React dekont durumunu ayrıca getirir. “Dekont durumunu yenile” manuel GET, “Dekontu tekrar iste” ayrı POST'tur; otomatik transfer veya dekont tekrarı yoktur.
+- Tam yenilemeden sonra kendi hesap ayrıntısındaki giden hareket → “Dekontu görüntüle” ile tekrar ulaşılır. Hareket DTO'sundaki nullable receiptTransferId yalnız gönderenin DEBIT hareketinde gelir; eski açılış hareketleri ve eski dekontsuz transferler NULL kalır.
+- Bakiye gizliliğinde metin gizlenir. Çıkış/kullanıcı değişiminde bileşen bırakılır; sürüm/cleanup geç yanıtları kullanmaz.
+
+### Kurulum ve çalıştırma
+`db/oracle/14_transfer_receipts.sql` metadata kontrolü sonrası ayrı SQL*Plus bağlantısında bu makinede **bir kez uygulandı**; tekrar çalıştırmayın. Eski şema/seed/parola hazırlığı çalıştırılmaz. Yeni ortamda 13 sonrası yalnız yeni migration ayrıca uygulanmalıdır; uygulamalar otomatik SQL çalıştırmaz.
+
+RabbitMQ Compose ve portları önceki bölümle aynıdır. Backend artık yönetilen AMQP starter kullanır; worker JDBC starter ve backend ile aynı ojdbc17 sürümünü kullanır. Her ikisi Git dışındaki Oracle/RabbitMQ env dosyalarını okur. Önceki 14.1–14.4 kaydı tarihsel olarak yalnız sentetik log demosunu anlatır; güncel worker Oracle dekont tablosuna da bağlanır. Proje kökünden iki ayrı terminalde:
+```powershell
+$env:JAVA_HOME = 'C:/Program Files/Android/openjdk/jdk-21.0.8'
+Set-Location backend
+./mvnw.cmd test package
+& "$env:JAVA_HOME/bin/java.exe" -jar target/hesaplab-backend-0.0.1-SNAPSHOT.jar
+```
+Diğer terminalde aynı JDK değişkenini ayarlayıp `worker` dizininde `./mvnw.cmd test package`, ardından `& "$env:JAVA_HOME/bin/java.exe" -jar target/hesaplab-worker-0.0.1-SNAPSHOT.jar` çalıştırılır. Maven için hedef JAR çalışıyorsa yalnız o projeye ait süreci durdurun; başka Java/Oracle süreçlerini kapatmayın. Gerçek Oracle testleri için paketleme öncesinde yalnız o terminalde `$env:HESAPLAB_ORACLE_TEST='true'` gerekir; testler kendi izole verilerini FK sırasıyla temizler. Frontend önceki gibi localhost5181'de çalışır; backend8081, broker5673/15673.
+
+### Teslim sınırı
+**Outbox yoktur; kayıpsız teslim garantisi verilmez.** Oracle commit'i ile RabbitMQ yayını arasında süreç durursa transfer tamamlanmış, dekont PENDING ve mesaj gönderilmemiş olabilir. Yayın onayının kaybında mesaj işlenmiş de olabilir. Bekleyen/başarısız dekontu manuel tekrar istemek yalnız aynı dekontu hazırlar; transfer yeniden çalışmaz. Tüketici tekrarı aynı READY kaydını korur; bu, DB ile broker arasında atomik teslim sağlamaz. Otomatik retry/DLQ yoktur; reddedilen mesaj kaybolabilir, kullanıcı dekontu tekrar isteyebilir.
+
+### Gerçek kontrol kaydı — geliştirici, 2026-11-02
+- Son backend:34 test (10 Security,22 gerçek Oracle,2 publisher),0 hata/skip ve package geçti. Son worker:10 test (5 önceki demo,3 consumer,2 gerçek Oracle),0 hata/skip, clean test/package geçti. Frontend build/lint uyarısız; diff kontrolü geçti.
+- Backend testleri: receipt CHECK yazma hatasında tüm transfer/iki bakiye/hareket/dekont rollback ve sıfır yayın; commit'in ayrı bağlantıda görünmesinden sonra yayın; yayın hatasında kalıcı FAILED; kanonik kimlikle tekrar istek; replay; yalnız gönderici/ortak404/ADMIN/anonim/CSRF ve alıcı hareket DTO'sunda dekont kimliği olmaması. Önceki güvenlik/yönetim/paralel transfer testleri korundu.
+- Worker testleri: gerçek Oracle yazma hatasında yarım READY yok; FAILED sonrası hazırlanma; eşzamanlı/tekrar işlemde tek READY ve değişmeyen içerik/zaman. AUTO onay sırası koddan ve metot sınırından incelendi; commit sonrası/ack öncesi süreç öldürme yapılmadı.
+- Gerçek HTTP + RabbitMQ + ayrı worker: worker kapalı transfer105 başarılı/PENDING, receipt kuyruğunda ready1/consumers0; worker açılınca READY. Replay eşdeğer sıfırlı kimlik/25.5 ile aynı transfer; broker üzerinden tekrar mesaj ve dekont isteği tek sonucu korudu.
+- Yalnız HesapLab broker kapalıyken transfer106 başarılı kaldı, dekont FAILED kalıcıydı. Broker açıldıktan sonra yalnız dekont POST'u ile READY oldu. İzole iki transfer sonunda kaynak69.50, alıcı50.50, diğer hesap10.00; toplam130 korundu,2 transfer/4 hareket/2 dekont vardı.
+- İzole HTTP kayıtları dekont→hareket→transfer→hesap→kullanıcı sırasıyla temizlendi. Önce/sonra bütün mevcut satır fingerprint'leri eşleşti; testler de tam snapshot karşılaştırdı. Eski3 hesap/3 hareket ve kullanıcılar korundu. Migration dışında eski SQL/parola hazırlığı yoktu.
+- **UI doğrulanmadı:** Windows computer-use aracı mevcut browser URL'sini güvenilir doğrulayamadığı için kontrolü durdurdu. İzole UI fixture oluşturulmuştu ancak kullanılmadan temizlendi. Tarayıcıda yeni dekont akışı, yenilemeden hareketten erişim, Tab/Enter ve390px bu tur çalıştırılmadı; JSX/geç yanıt/gizlilik ve dar ekran stilleri koddan incelendi. Gerçek ağ kaybı veya commit→yayın arasında süreç kesintisi simüle edilmedi.
+- Backend/frontend/worker/broker/Oracle çalışır bırakılır. Bu kayıt geliştiriciye aittir; yönetici incelemesi ve Berk'in öğrenme teyidi henüz yok. Commit/push yok.
+
+Resmî dayanak: [Spring afterCommit ve REQUIRES_NEW](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/support/TransactionSynchronization.html), [Spring AMQP listener onayı](https://docs.spring.io/spring-amqp/reference/amqp/containerAttributes.html). Eski kontrol kayıtları yukarıda kaynaklarıyla korunur.
+
+Yönetici14.5–14.8: migration14/Java-React/ayarlar/testler ve ilgili diff incelendi; 34 backend (22 gerçek Oracle)+10 worker (2 gerçek Oracle) testi0 hata/skip,frontend build/lint/diff geçti. Gerçek IAB kontrolü geliştiricinin eksik UI doğrulamasını tamamladı: izole kaynak955/hedef956 ile25,50 transfer163,worker kapalıyken PENDING/iki hareket; worker açılınca READY/metin,gizlilik ve Enter ile durum yenileme doğrulandı. Yalnız broker kapalıyken5 TL transfer164 başarılı/kalıcı FAILED; broker geri açılıp yalnız dekont tekrar isteğiyle READY oldu. Son69,50/50,50,iki transfer/dört hareket/iki READY dekont; tekrar dekont isteği para işlemi üretmedi. Tam sayfa yenileme→giden hareket→iki dekontu açma,Tab/Enter,alıcıda dekont düğmesi olmaması geçti. 390px client=scroll375 ve1280px client=scroll1265; mobil görsel kontrol geçti. Viewport geri alındı. İnceleme kayıtları dekont→hareket→transfer→hesap sırasıyla temizlendi; beş tabloda eski9 kaydın bütün sütun fingerprinti aynı. Müşteri01 normal10.000/3.500 ekranı açık; backend/frontend/worker/broker/Oracle çalışır. Yerel Oracle/RabbitMQ/demo parolaları Git adaylarında yok. Package geliştirici kanıtıdır; bu tur tekrarlanmadı. Gerçek ağ yanıt kaybı,geç UI yanıtı ve commit/ack öncesi süreç kesintisi yapay tetiklenmedi; kaynak korumaları incelendi. İşlevsel düzeltme bulgusu yok. Outbox/otomatik retry/DLQ yok; teslim boşluğu belgeli. Öğrenme teyidi ve commit/push yok.

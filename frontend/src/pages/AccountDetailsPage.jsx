@@ -28,7 +28,7 @@ export default function AccountDetailsPage({ userId, onUnauthorized, customerNam
     <>
       <h1 className="page-title">Hesap ayrıntısı</h1>
       {loading ? <p role="status">Hesap yükleniyor…</p> : account ? (
-        <><AccountCard name={account.name} balance={account.balance}
+        <><AccountCard id={account.id} name={account.name} balance={account.balance}
           customerName={customerName} showBalances={showBalances} />
         <AccountMovements key={`${userId}:${accountId}`} accountId={accountId} userId={userId} showBalances={showBalances} onUnauthorized={onUnauthorized} /></>
       ) : (

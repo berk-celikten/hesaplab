@@ -11,10 +11,12 @@ public class TransferService {
     }
     private static final BigDecimal MAX = new BigDecimal("9999999999999.99");
     private final TransferRepository repository;
+    private final com.hesaplab.receipt.ReceiptService receipts;
     private final org.springframework.transaction.support.TransactionTemplate transaction;
     public static class Conflict extends RuntimeException { public Conflict(){super("Anahtar farklı içerikle kullanılmış veya sonucu henüz doğrulanamıyor.");} }
     public record Result(String transferId,String message) { }
-    public TransferService(TransferRepository repository,org.springframework.transaction.PlatformTransactionManager manager) {
+    public TransferService(TransferRepository repository,org.springframework.transaction.PlatformTransactionManager manager, com.hesaplab.receipt.ReceiptService receipts) {
+        this.receipts = receipts;
         this.repository=repository;
         transaction=new org.springframework.transaction.support.TransactionTemplate(manager);
         transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -48,8 +50,8 @@ public class TransferService {
                 var previous=repository.find(owner,normalizedKey);
                 if(previous.isPresent()) return replay(previous.get(),source,target,amount);
 
-                var first = repository.lock(source.min(target), owner);
-                var second = repository.lock(source.max(target), owner);
+                var first = repository.lock(source.min(target), owner, source);
+                var second = repository.lock(source.max(target), owner, source);
                 var from = first.id().compareTo(source) == 0 ? first : second;
                 var to = first.id().compareTo(target) == 0 ? first : second;
                 String transferId=repository.insertTransfer(owner,normalizedKey,source,target,amount);
@@ -62,6 +64,7 @@ public class TransferService {
                 repository.update(target, afterTarget);
                 repository.movement(source, "DEBIT", amount, afterSource, transferId);
                 repository.movement(target, "CREDIT", amount, afterTarget, transferId);
+                receipts.createAfterTransfer(transferId);
                 return new Result(transferId,"Transfer tamamlandı.");
             });
         } catch(org.springframework.dao.DuplicateKeyException duplicate) {

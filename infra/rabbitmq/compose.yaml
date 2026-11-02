@@ -1,0 +1,23 @@
+name: hesaplab-rabbitmq
+services:
+  rabbitmq:
+    image: rabbitmq:4.4.0-management@sha256:af6f50d38098d8bd52fef7f3fa85015dd8b2bf6def58e995bf584ae9ba0f6407
+    container_name: hesaplab-rabbitmq
+    hostname: hesaplab-rabbitmq
+    ports:
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Yerel env dosyası gerekli}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Yerel env dosyası gerekli}
+      RABBITMQ_DEFAULT_VHOST: hesaplab
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+volumes:
+  rabbitmq_data:

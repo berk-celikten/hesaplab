@@ -1,4 +1,5 @@
 export default function TransferPage({
+  externalTarget, handleExternalTarget, recipientInput, handleRecipientInput, verifiedRecipient, recipientLoading, recipientError, verifyRecipient,
   isSending, transferMessage, handleTransfer,
   sourceAccountId,
   targetAccountId,
@@ -34,6 +35,15 @@ export default function TransferPage({
           {formErrors.sourceAccount && <p className="field-error" id="source-account-error">{formErrors.sourceAccount}</p>}
           <p>{sourceAccount ? `Seçilen kaynak hesap: ${sourceAccount.name}` : 'Henüz hesap seçilmedi.'}</p>
         </div>
+        <label><input type="checkbox" checked={externalTarget} onChange={handleExternalTarget} /> Demo hesap no ile alıcı doğrula</label>
+        {externalTarget ? <section aria-label="Alıcı doğrulama">
+          <div className="amount-field"><label htmlFor="recipient-number">Alıcı demo hesap no</label><input id="recipient-number" inputMode="numeric" value={recipientInput} onChange={handleRecipientInput} /></div>
+          <button className="balance-toggle" type="button" disabled={recipientLoading} onClick={verifyRecipient}>Alıcıyı doğrula</button>
+          {recipientLoading && <p role="status">Alıcı doğrulanıyor…</p>}
+          {recipientError && <p role="alert">{recipientError}</p>}
+          {verifiedRecipient && <p>Doğrulanan alıcı: {verifiedRecipient.customerName} · {verifiedRecipient.name} · Demo hesap no: {verifiedRecipient.id} · {verifiedRecipient.currency}</p>}
+          {formErrors.targetAccount && <p className="field-error">{formErrors.targetAccount}</p>}
+        </section> : (
         <div className="source-account">
           <label htmlFor="target-account">Hedef hesap</label>
           <select id="target-account" value={targetAccountId} onChange={handleTargetAccountChange}
@@ -47,6 +57,7 @@ export default function TransferPage({
           </select>
           {formErrors.targetAccount && <p className="field-error" id="target-account-error">{formErrors.targetAccount}</p>}
         </div>
+        )}
         <div className="amount-field">
           <label htmlFor="amount-text">Tutar (TL)</label>
           <input id="amount-text" type="text" inputMode="decimal" value={amountText} onChange={handleAmountChange}

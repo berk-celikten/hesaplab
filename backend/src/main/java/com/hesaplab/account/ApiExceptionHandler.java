@@ -25,6 +25,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<ErrorDto> idempotencyConflict(RuntimeException error) {
         return ResponseEntity.status(409).body(new ErrorDto(error.getMessage()));
     }
+    @ExceptionHandler(com.hesaplab.receipt.ReceiptService.NotFound.class)
+    public ResponseEntity<ErrorDto> receiptNotFound() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorDto("Dekont bulunamadı."));
+    }
     public record ErrorDto(String message) { }
     @ExceptionHandler(AccountService.AccountNotFoundException.class)
     public ResponseEntity<ErrorDto> accountNotFound() {

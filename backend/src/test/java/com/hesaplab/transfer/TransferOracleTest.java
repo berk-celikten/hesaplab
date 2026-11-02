@@ -28,9 +28,14 @@ class TransferOracleTest {
     @Autowired MockMvc mvc;
     @Autowired com.hesaplab.admin.AdminService adminService;
     @MockitoSpyBean TransferRepository repository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.hesaplab.receipt.ReceiptPublisher publisher;
+    @Autowired com.hesaplab.receipt.ReceiptService receipts;
+    @MockitoSpyBean com.hesaplab.receipt.ReceiptRepository receiptRepository;
+    List<Map<String,Object>> receiptsBefore;
     String username, owner, foreignOwner, source, target, foreign;
     List<Map<String,Object>> usersBefore, accountsBefore, movementsBefore, transfersBefore;
     @BeforeEach void setup() {
+        receiptsBefore = jdbc.queryForList("SELECT id,transfer_id,status,TO_CHAR(content) AS content,error_message,created_at,updated_at FROM transfer_receipts ORDER BY id");
         transfersBefore = jdbc.queryForList("SELECT * FROM transfers ORDER BY id");
         usersBefore = jdbc.queryForList("SELECT * FROM app_users ORDER BY id");
         accountsBefore = jdbc.queryForList("SELECT * FROM accounts ORDER BY id");
@@ -48,11 +53,13 @@ class TransferOracleTest {
         return jdbc.queryForObject("SELECT id FROM accounts WHERE owner_user_id=? AND name=?",String.class,new BigDecimal(user),name);
     }
     @AfterEach void cleanup() {
-        reset(repository);
+        reset(repository, receiptRepository);
+        jdbc.update("DELETE FROM transfer_receipts WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM account_movements WHERE account_id IN (SELECT id FROM accounts WHERE owner_user_id IN (?,?))",owner,foreignOwner);
         jdbc.update("DELETE FROM transfers WHERE user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM accounts WHERE owner_user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM app_users WHERE id IN (?,?)",owner,foreignOwner);
+        assertThat(jdbc.queryForList("SELECT id,transfer_id,status,TO_CHAR(content) AS content,error_message,created_at,updated_at FROM transfer_receipts ORDER BY id")).isEqualTo(receiptsBefore);
         assertThat(jdbc.queryForList("SELECT * FROM transfers ORDER BY id")).isEqualTo(transfersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM app_users ORDER BY id")).isEqualTo(usersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM accounts ORDER BY id")).isEqualTo(accountsBefore);
@@ -73,7 +80,7 @@ class TransferOracleTest {
         for(String amount: List.of("0","-1","abc","1e2","1,2","1.001","10000000000000","101")) {
             assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request(amount))).isInstanceOf(TransferService.Rejected.class);
         }
-        for(String id: List.of(source,"000"+source,foreign,"999999999999999999","bad")) {
+        for(String id: List.of(source,"000"+source,"999999999999999999","bad")) {
             assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(source,id,"1"))).isInstanceOf(TransferService.Rejected.class);
         }
         assertThat(balance(source)).isEqualByComparingTo("100"); assertThat(movements()).isZero();
@@ -123,7 +130,7 @@ class TransferOracleTest {
         mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(csrf()).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(admin)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isForbidden());
         mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).contentType("application/json").content(body)).andExpect(status().isForbidden());
-        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\""+target+"\"","\""+foreign+"\""))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\""+source+"\"","\""+foreign+"\""))).andExpect(status().isBadRequest());
         mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\"1.00\"","1.00"))).andExpect(status().isBadRequest());
         assertThat(movements()).isZero(); assertThat(balance(source)).isEqualByComparingTo("100");
         mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk());
@@ -292,7 +299,131 @@ class TransferOracleTest {
         assertThatThrownBy(()->service.transfer(owner,key,request("25.5"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isZero();
         assertThat(movements()).isZero();assertThat(balance(source)).isEqualByComparingTo("100");
-        reset(repository);
+        reset(repository, receiptRepository);
+        jdbc.update("DELETE FROM transfer_receipts WHERE transfer_id IN (SELECT id FROM transfers WHERE user_id IN (?,?))",owner,foreignOwner);
         var result=service.transfer(owner,key,request("25.50"));
         assertThat(result.transferId()).isNotBlank();assertThat(movements()).isEqualTo(2);
-    }}
+    }    @Test void crossCustomerTransferRecipientPrivacyAndReplay() throws Exception {
+        var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
+        var admin=new AppUserDetails(new UserDto(owner,username,"Test","ADMIN"),"");
+        mvc.perform(get("/api/recipients/"+foreign)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/recipients/"+foreign).with(user(admin))).andExpect(status().isForbidden());
+        var result=mvc.perform(get("/api/recipients/"+foreign).with(user(customer))).andExpect(status().isOk()).andReturn();
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().readTree(result.getResponse().getContentAsString());
+        assertThat(json.size()).isEqualTo(4);assertThat(json.get("id").asText()).isEqualTo(foreign);
+        assertThat(json.has("balance")).isFalse();assertThat(json.has("username")).isFalse();
+        String key=UUID.randomUUID().toString();
+        var first=service.transfer(owner,key,new TransferRequest(source,foreign,"25.5"));
+        assertThat(service.transfer(owner,key,new TransferRequest("00"+source,"00"+foreign,"25.50"))).isEqualTo(first);
+        assertThat(balance(source)).isEqualByComparingTo("74.50");assertThat(balance(foreign)).isEqualByComparingTo("45.50");
+        assertThat(balance(source).add(balance(foreign))).isEqualByComparingTo("120");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_movements WHERE transfer_id=?",Integer.class,first.transferId())).isEqualTo(2);
+        assertThatThrownBy(()->service.transfer(owner,key,new TransferRequest(source,foreign,"1"))).isInstanceOf(TransferService.Conflict.class);
+        assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(foreign,source,"1"))).isInstanceOf(TransferService.Rejected.class);
+        mvc.perform(get("/api/accounts/"+foreign).with(user(customer))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/accounts/"+foreign+"/movements").with(user(customer))).andExpect(status().isNotFound());
+    }
+    @Test void adminRecipientAndInvalidTargetsRejectedWithoutWrites() throws Exception {
+        String adminId=jdbc.queryForObject("SELECT id FROM app_users WHERE username='demo_admin'",String.class);
+        String adminAccount=account(adminId,"Isolated admin target "+username,"0");
+        try {
+            var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
+            for(String id:List.of(adminAccount,"bad","999999999999999999")) {
+                mvc.perform(get("/api/recipients/"+id).with(user(customer))).andExpect(status().isNotFound());
+                assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(source,id,"1"))).isInstanceOf(TransferService.Rejected.class);
+            }
+            assertThat(balance(source)).isEqualByComparingTo("100");assertThat(movements()).isZero();
+        } finally {jdbc.update("DELETE FROM accounts WHERE id=?",adminAccount);}
+    }
+    @Test void oppositeCrossCustomerTransfersUseConsistentAccountLockOrder() throws Exception {
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            var start=new CountDownLatch(1);
+            Callable<TransferService.Result> forward=()->{start.await();return service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(source,foreign,"5"));};
+            Callable<TransferService.Result> backward=()->{start.await();return service.transfer(foreignOwner,UUID.randomUUID().toString(),new TransferRequest(foreign,source,"3"));};
+            var a=pool.submit(forward);var b=pool.submit(backward);start.countDown();
+            a.get(12,TimeUnit.SECONDS);b.get(12,TimeUnit.SECONDS);
+            assertThat(balance(source)).isEqualByComparingTo("98");assertThat(balance(foreign)).isEqualByComparingTo("22");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id IN (?,?)",Integer.class,owner,foreignOwner)).isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_movements WHERE account_id IN (?,?)",Integer.class,source,foreign)).isEqualTo(4);
+        }finally{pool.shutdownNow();}
+    }
+    @Test void receiptIsCreatedAtomicallyAndPublishedOnlyAfterCommit() throws Exception {
+        doAnswer(call -> {
+            String id = call.getArgument(0);
+            try (var connection = jdbc.getDataSource().getConnection();
+                 var statement = connection.prepareStatement("SELECT status FROM transfer_receipts WHERE transfer_id=?")) {
+                statement.setString(1,id);
+                try (var row=statement.executeQuery()) { assertThat(row.next()).isTrue(); assertThat(row.getString(1)).isEqualTo("PENDING"); }
+            }
+            return null;
+        }).when(publisher).publish(anyString());
+        String key=UUID.randomUUID().toString();
+        String id=service.transfer(owner,key,request("25.50")).transferId();
+        assertThat(service.transfer(owner,key,request("25.5")).transferId()).isEqualTo(id);
+        verify(publisher,times(1)).publish(id);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfer_receipts WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
+        assertThat(movements()).isEqualTo(2);
+    }
+
+    @Test void receiptPublishFailureCommitsSeparateFailureStateAndCanBeRequestedAgain() throws Exception {
+        doThrow(new org.springframework.amqp.AmqpConnectException(new java.net.ConnectException("Test only"))).when(publisher).publish(anyString());
+        String id=service.transfer(owner,UUID.randomUUID().toString(),request("25.50")).transferId();
+        assertThat(balance(source)).isEqualByComparingTo("74.50");
+        assertThat(receipts.get(owner,id).status()).isEqualTo("FAILED");
+        // JdbcTemplate burada transfer transaction'ının dışında: hata durumu kalıcıdır.
+        assertThat(jdbc.queryForObject("SELECT status FROM transfer_receipts WHERE transfer_id=?",String.class,id)).isEqualTo("FAILED");
+        reset(publisher);
+        assertThat(receipts.requestAgain(owner,"000"+id).status()).isEqualTo("PENDING");
+        verify(publisher).publish(id);
+        assertThat(movements()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isEqualTo(1);
+    }
+
+    @Test void realReceiptWriteErrorRollsBackTransferAndDoesNotPublish() throws Exception {
+        doAnswer(call -> {
+            call.callRealMethod();
+            jdbc.update("UPDATE transfer_receipts SET status='INVALID' WHERE transfer_id=?",call.getArgument(0,String.class));
+            return null;
+        }).when(receiptRepository).create(anyString());
+        assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request("25.50"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        verify(publisher,never()).publish(anyString());
+        assertThat(balance(source)).isEqualByComparingTo("100");
+        assertThat(balance(target)).isEqualByComparingTo("10");
+        assertThat(movements()).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isZero();
+    }
+
+    @Test void receiptsAreSenderOnlyAndRetryDoesNotTransferMoney() throws Exception {
+        String id=service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(source,foreign,"25.50")).transferId();
+        var sender=new AppUserDetails(new UserDto(owner,username,"Sender","CUSTOMER"),"");
+        var receiver=new AppUserDetails(new UserDto(foreignOwner,username+"_other","Receiver","CUSTOMER"),"");
+        var admin=new AppUserDetails(new UserDto(owner,username,"Admin","ADMIN"),"");
+        String url="/api/transfers/"+id+"/receipt";
+        mvc.perform(get(url)).andExpect(status().isUnauthorized());
+        mvc.perform(get(url).with(user(admin))).andExpect(status().isForbidden());
+        for(String hidden:List.of(id,"bad","999999999999999999")) {
+            mvc.perform(get("/api/transfers/"+hidden+"/receipt").with(user(receiver))).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Dekont bulunamadı."));
+        }
+        mvc.perform(post(url).with(csrf())).andExpect(status().isUnauthorized());
+        mvc.perform(post(url).with(user(admin)).with(csrf())).andExpect(status().isForbidden());
+        mvc.perform(post(url).with(user(sender))).andExpect(status().isForbidden());
+        mvc.perform(get(url).with(user(sender))).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
+        mvc.perform(post(url).with(user(sender)).with(csrf())).andExpect(status().isOk());
+        mvc.perform(post(url).with(user(sender)).with(csrf())).andExpect(status().isOk());
+        assertThat(balance(source)).isEqualByComparingTo("74.50");
+        assertThat(balance(foreign)).isEqualByComparingTo("45.50");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfer_receipts WHERE transfer_id=?",Integer.class,id)).isEqualTo(1);
+        jdbc.update("UPDATE transfer_receipts SET status='READY',content='Synthetic receipt' WHERE transfer_id=?",id);
+        clearInvocations(publisher);
+        mvc.perform(post(url).with(user(sender)).with(csrf())).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY"));
+        verify(publisher,never()).publish(anyString());
+        mvc.perform(get("/api/accounts/"+source+"/movements").with(user(sender))).andExpect(jsonPath("$[0].receiptTransferId").value(id));
+        mvc.perform(get("/api/accounts/"+foreign+"/movements").with(user(receiver))).andExpect(jsonPath("$[0].receiptTransferId").isEmpty());
+        String body=mvc.perform(get(url).with(user(sender))).andReturn().getResponse().getContentAsString();
+        assertThat(body).doesNotContain("balance","password","session","username","role");
+    }
+
+}

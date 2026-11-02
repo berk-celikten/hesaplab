@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import TransferReceipt from './TransferReceipt.jsx'
 import { request } from '../services/api.js'
 
 const money = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -30,6 +31,7 @@ export default function AccountMovements({ accountId, userId, showBalances, onUn
           <p>{item.direction === 'CREDIT' ? 'Giriş' : 'Çıkış'} · {amount(item.amount)}</p>
           <p>İşlem sonrası bakiye: {amount(item.balanceAfter)}</p>
           <p>{item.description || 'Açıklama yok.'}</p>
+          {item.receiptTransferId && <TransferReceipt key={`${userId}:${item.receiptTransferId}`} transferId={item.receiptTransferId} userId={userId} onUnauthorized={onUnauthorized} showBalances={showBalances} />}
         </li>)}
       </ol>}
     </section>

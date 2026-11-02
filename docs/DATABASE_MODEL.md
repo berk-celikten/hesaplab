@@ -1,4 +1,4 @@
-# Oracle veri modeli — 6.1–6.7 ve 7.2
+# Oracle veri modeli — kullanıcı, hesap, hareket, transfer ve dekont
 
 Kullanıcı, hesap ve hareket tabloları yerel Oracle AI Database 26ai Free 23.26.3.0.0 üzerinde oluşturuldu.
 SQL, Oracle 19c söz dizimi hedefiyle yazıldı; Oracle 19c sunucusunda ayrıca denenmedi.
@@ -22,6 +22,7 @@ erDiagram
     app_users ||--o{ transfers : requests
     accounts ||--o{ transfers : participates
     transfers |o--o{ account_movements : links
+    transfers ||--o| transfer_receipts : has
     app_users {
         NUMBER id PK
         VARCHAR2 username UK
@@ -45,6 +46,15 @@ erDiagram
         NUMBER amount
         VARCHAR2 currency
         TIMESTAMP_WITH_TIME_ZONE created_at
+    }
+    transfer_receipts {
+        NUMBER id PK
+        NUMBER transfer_id FK,UK
+        VARCHAR2 status
+        CLOB content
+        VARCHAR2 error_message
+        TIMESTAMP_WITH_TIME_ZONE created_at
+        TIMESTAMP_WITH_TIME_ZONE updated_at
     }
     account_movements {
         NUMBER id PK
@@ -154,3 +164,21 @@ Geliştirici açık diyagramın kaydedilmemiş değişiklik uyarısında yeniden
 Kaynak: [Oracle 19c SYSTIMESTAMP](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SYSTIMESTAMP.html).
 ## 13.1–13.4: tamamlanmış transfer ve replay
 13_transfer_idempotency.sql bir kez uygulandı. UNIQUE(user_id,idempotency_key), anahtarı kullanıcı kapsamında benzersiz tutar. Kaynak/hedef FK'leri accounts'a, user_id app_users'a bağlıdır; gerçek sahiplik/rol backend kontrolüdür. amount NUMBER(15,2)>0, para TRY, kaynak/hedef farklıdır. Transfer kaydı ancak iki bakiye/iki hareketle birlikte commit olur; başarısız işlem kayıt bırakmaz. account_movements.transfer_id nullable FK: eski açılış kayıtları NULL, yeni transferin DEBIT/CREDIT çifti aynı transferi gösterir. Kaynak/hedef ikisi de accounts'a bağlıdır; Mermaid sadeleştirilmiş çizgisi iki FK'yi temsil eder. Eski dgm/PNG bu yeni tabloyu/sütunu içermez; güncel model bu SQL ve Mermaid'dir. Kimliklerde rollback sonrası boşluk normaldir. Anahtar arşivleme/süre sonu henüz yoktur. Yeni modelin hazırlanması öğrenme kanıtı değildir.
+
+## 14.5–14.8: asenkron metin dekontu
+`14_transfer_receipts.sql`, metadata'da tablo olmadığı görüldükten sonra ayrı bağlantıda bir kez uygulandı. Eski tablo/seed değiştirilmedi. Bir transferin sıfır veya bir dekontu olabilir: eski transferler için geriye dönük kayıt yok; yeni transferde dekont aynı transaction'da zorunlu oluşturulur.
+
+| Sütun | Kural |
+| --- | --- |
+| id | NUMBER GENERATED ALWAYS AS IDENTITY, primary key |
+| transfer_id | NUMBER NOT NULL; transfers.id foreign key ve UNIQUE |
+| status | PENDING/READY/FAILED; varsayılan PENDING, zorunlu |
+| content | CLOB; yalnız READY için zorunlu, diğer durumlarda NULL |
+| error_message | VARCHAR2(200 CHAR); yalnız FAILED için zorunlu |
+| created_at / updated_at | TIMESTAMP WITH TIME ZONE, SYSTIMESTAMP, zorunlu |
+
+CHECK; READY için içerik ve hatasızlık, PENDING için boş içerik/hata, FAILED için boş içerik ve hata metni sağlar. Tabloda bakiye/hareket yoktur. Yeni dekont kaydı transfer transaction'ına katılır; UNIQUE/FK ikinci kaydı ve olmayan transferi engeller. Worker dekont satırını kilitler, Oracle'dan görünen adlarla metin üretir ve READY kaydeder; yinelenen işlem READY içerik/zamanını değiştirmez. Kaynak/alıcı adları hazırlanma anındaki görünen adlardır; yasal banka belgesi veya değişmez müşteri kimlik bilgisi iddiası yoktur.
+
+Gönderici erişimi yalnız FK ile sağlanmaz: backend transfers.user_id=principal koşulunu SQL'de uygular. Alıcı bakiyesi/hareketi dekonta eklenmez. Mesaj sadece transfer kimliği taşır. Transfer commit'i ile mesaj yayını ayrı sistemlerdedir; outbox olmadığı için aradaki süreç kesintisinde dekont PENDING kalabilir. Manuel dekont isteği bu boşluğu toparlar; kayıpsız otomatik teslim garantisi yoktur.
+
+Geliştirici:34 backend/10 worker testi, gerçek kapalı-worker ve kapalı-broker HTTP senaryosu, tekrar mesaj/istek, snapshot temizliği geçti. İzole iki transfer için4 hareket/2 dekont; eski satırlar aynı. UI aracı URL doğrulamasında durdu; UI/mobil kontrol yapılmadı. Ayrıntı ve kontrol kaynakları README'de. Yeni modelin hazırlanması öğrenme teyidi değildir. Eski dgm/PNG bu tabloyu içermez; güncel Mermaid/SQL modelini kullanın.
