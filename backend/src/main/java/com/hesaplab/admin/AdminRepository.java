@@ -28,4 +28,17 @@ public class AdminRepository {
         },key);
         return key.getKey().toString();
     }
-}
+    public UserDto createUser(String username, String name, String hash) {
+        var key = new GeneratedKeyHolder();
+        jdbc.update(connection -> {
+            var statement = connection.prepareStatement("INSERT INTO app_users(username,display_name,role,password_hash) VALUES (?,?,'CUSTOMER',?)", new String[]{"ID"});
+            statement.setString(1,username); statement.setString(2,name); statement.setString(3,hash); return statement;
+        },key);
+        return new UserDto(key.getKey().toString(),username,name,"CUSTOMER");
+    }
+    public int renameUser(BigDecimal id, String name) {
+        return jdbc.update("UPDATE app_users SET display_name=? WHERE id=? AND role='CUSTOMER'",name,id);
+    }
+    public int renameAccount(BigDecimal id, String name) {
+        return jdbc.update("UPDATE accounts SET name=? WHERE id=?",name,id);
+    }}

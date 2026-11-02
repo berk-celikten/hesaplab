@@ -65,7 +65,7 @@ export default function TransferPage({
           <p>Kaynak: {draftSource ? `${draftSourceCustomerName} · ${draftSource.name}` : 'Seçilmedi'}</p>
           <p>Hedef: {draftTarget ? `${draftTargetCustomerName} · ${draftTarget.name}` : 'Seçilmedi'}</p>
           <p>Tutar: {transferDraft.amountText.trim() === '' ? 'Girilmedi' : `${transferDraft.amountText} TL`}</p>
-          <button className="balance-toggle" type="button" disabled={isSending} onClick={handleTransfer}>Transferi gerçekleştir</button>
+          <button className="balance-toggle" type="button" disabled={isSending} onClick={() => handleTransfer()}>Transferi gerçekleştir</button>
         </section>
       )}
     </>

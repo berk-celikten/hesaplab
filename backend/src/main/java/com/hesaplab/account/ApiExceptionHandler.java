@@ -21,6 +21,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<ErrorDto> invalidBody() {
         return ResponseEntity.badRequest().body(new ErrorDto("Geçersiz transfer isteği."));
     }
+    @ExceptionHandler(com.hesaplab.transfer.TransferService.Conflict.class)
+    public ResponseEntity<ErrorDto> idempotencyConflict(RuntimeException error) {
+        return ResponseEntity.status(409).body(new ErrorDto(error.getMessage()));
+    }
     public record ErrorDto(String message) { }
     @ExceptionHandler(AccountService.AccountNotFoundException.class)
     public ResponseEntity<ErrorDto> accountNotFound() {

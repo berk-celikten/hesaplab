@@ -1,3 +1,4 @@
+import AdminChanges from '../components/AdminChanges.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { request } from '../services/api.js'
 const money = new Intl.NumberFormat('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})
@@ -43,6 +44,10 @@ export default function AdminPage({ user, onUnauthorized }) {
     {error && <p role="alert">{error}</p>}
     <button className="balance-toggle" type="button" disabled={pending} onClick={()=>{setData(null);setError('');setAttempt(n=>n+1)}}>Listeleri yeniden yükle</button>
     {!data ? !error && <p role="status">Listeler yükleniyor…</p> : <>
+      <AdminChanges users={data.users} accounts={data.accounts} pending={pending} onBusy={setPending} onUnauthorized={onUnauthorized} onChanged={async()=>{
+        const [users,accounts]=await Promise.all([request('/api/admin/users'),request('/api/admin/accounts')])
+        if(alive.current){setData({users,accounts});setError('')}
+      }} />
       <h2>Kullanıcılar</h2>
       {data.users.length===0?<p>Kullanıcı bulunamadı.</p>:<ul className="movement-list">{data.users.map(u=><li key={u.id}>{u.name} · {u.username} · {u.role} · Kimlik: {u.id}</li>)}</ul>}
       <h2>Hesap aç</h2>

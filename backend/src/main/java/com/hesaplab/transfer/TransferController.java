@@ -11,8 +11,8 @@ public class TransferController {
     private final TransferService service;
     public TransferController(TransferService service) { this.service = service; }
     @PostMapping
-    public Map<String, String> transfer(@AuthenticationPrincipal AppUserDetails user, @RequestBody TransferRequest request) {
-        service.transfer(user.user().id(), request);
-        return Map.of("message", "Transfer tamamlandı.");
+    public TransferService.Result transfer(@AuthenticationPrincipal AppUserDetails user, @RequestHeader(value="Idempotency-Key",required=false) String key, @RequestBody TransferRequest request) {
+        return service.transfer(user.user().id(), key, request);
+
     }
 }

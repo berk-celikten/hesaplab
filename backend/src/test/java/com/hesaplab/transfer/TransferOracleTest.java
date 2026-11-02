@@ -26,10 +26,12 @@ class TransferOracleTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired TransferService service;
     @Autowired MockMvc mvc;
+    @Autowired com.hesaplab.admin.AdminService adminService;
     @MockitoSpyBean TransferRepository repository;
     String username, owner, foreignOwner, source, target, foreign;
-    List<Map<String,Object>> usersBefore, accountsBefore, movementsBefore;
+    List<Map<String,Object>> usersBefore, accountsBefore, movementsBefore, transfersBefore;
     @BeforeEach void setup() {
+        transfersBefore = jdbc.queryForList("SELECT * FROM transfers ORDER BY id");
         usersBefore = jdbc.queryForList("SELECT * FROM app_users ORDER BY id");
         accountsBefore = jdbc.queryForList("SELECT * FROM accounts ORDER BY id");
         movementsBefore = jdbc.queryForList("SELECT * FROM account_movements ORDER BY id");
@@ -48,8 +50,10 @@ class TransferOracleTest {
     @AfterEach void cleanup() {
         reset(repository);
         jdbc.update("DELETE FROM account_movements WHERE account_id IN (SELECT id FROM accounts WHERE owner_user_id IN (?,?))",owner,foreignOwner);
+        jdbc.update("DELETE FROM transfers WHERE user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM accounts WHERE owner_user_id IN (?,?)",owner,foreignOwner);
         jdbc.update("DELETE FROM app_users WHERE id IN (?,?)",owner,foreignOwner);
+        assertThat(jdbc.queryForList("SELECT * FROM transfers ORDER BY id")).isEqualTo(transfersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM app_users ORDER BY id")).isEqualTo(usersBefore);
         assertThat(jdbc.queryForList("SELECT * FROM accounts ORDER BY id")).isEqualTo(accountsBefore);
         assertThat(jdbc.queryForList("SELECT * FROM account_movements ORDER BY id")).isEqualTo(movementsBefore);
@@ -58,7 +62,7 @@ class TransferOracleTest {
     BigDecimal balance(String id) { return jdbc.queryForObject("SELECT balance FROM accounts WHERE id=?",BigDecimal.class,new BigDecimal(id)); }
     int movements() { return jdbc.queryForObject("SELECT COUNT(*) FROM account_movements WHERE account_id IN (?,?)",Integer.class,source,target); }
     @Test void commitsTwoBalancesAndTwoMovements() {
-        service.transfer(owner,request("25.50"));
+        service.transfer(owner,UUID.randomUUID().toString(),request("25.50"));
         assertThat(balance(source)).isEqualByComparingTo("74.50");
         assertThat(balance(target)).isEqualByComparingTo("35.50");
         assertThat(balance(source).add(balance(target))).isEqualByComparingTo("110.00");
@@ -67,29 +71,29 @@ class TransferOracleTest {
     }
     @Test void rejectsInvalidAmountsAndAccountsWithoutWrites() {
         for(String amount: List.of("0","-1","abc","1e2","1,2","1.001","10000000000000","101")) {
-            assertThatThrownBy(()->service.transfer(owner,request(amount))).isInstanceOf(TransferService.Rejected.class);
+            assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request(amount))).isInstanceOf(TransferService.Rejected.class);
         }
         for(String id: List.of(source,"000"+source,foreign,"999999999999999999","bad")) {
-            assertThatThrownBy(()->service.transfer(owner,new TransferRequest(source,id,"1"))).isInstanceOf(TransferService.Rejected.class);
+            assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),new TransferRequest(source,id,"1"))).isInstanceOf(TransferService.Rejected.class);
         }
         assertThat(balance(source)).isEqualByComparingTo("100"); assertThat(movements()).isZero();
     }
     @Test void overflowRejectedWithoutRounding() {
         jdbc.update("UPDATE accounts SET balance=9999999999999.99 WHERE id=?",target);
-        assertThatThrownBy(()->service.transfer(owner,request("0.01"))).isInstanceOf(TransferService.Rejected.class);
+        assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request("0.01"))).isInstanceOf(TransferService.Rejected.class);
         assertThat(balance(source)).isEqualByComparingTo("100"); assertThat(movements()).isZero();
     }
     @Test void realOracleWriteFailureRollsBackEarlierWrites() {
         // Yalnız test spy'ı ikinci INSERT'i gerçek Oracle check hatasına çevirir.
         doAnswer(call -> { jdbc.update("INSERT INTO account_movements (account_id,direction,amount,balance_after) VALUES (?, 'INVALID', 1, 1)",target); return null; })
-                .when(repository).movement(eq(new BigDecimal(target)),eq("CREDIT"),any(),any());
-        assertThatThrownBy(()->service.transfer(owner,request("25"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
+                .when(repository).movement(eq(new BigDecimal(target)),eq("CREDIT"),any(),any(),any());
+        assertThatThrownBy(()->service.transfer(owner,UUID.randomUUID().toString(),request("25"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(balance(source)).isEqualByComparingTo("100"); assertThat(balance(target)).isEqualByComparingTo("10"); assertThat(movements()).isZero();
     }
     @Test void parallelTransfersCannotOverdrawOrLoseUpdates() throws Exception {
         var pool=Executors.newFixedThreadPool(2);
         try {
-            Callable<Boolean> transfer=()->{try {service.transfer(owner,request("80"));return true;}catch(TransferService.Rejected error){return false;}};
+            Callable<Boolean> transfer=()->{try {service.transfer(owner,UUID.randomUUID().toString(),request("80"));return true;}catch(TransferService.Rejected error){return false;}};
             var results=pool.invokeAll(List.of(transfer,transfer));
             assertThat(results.stream().filter(f->{try{return f.get();}catch(Exception e){throw new RuntimeException(e);}}).count()).isEqualTo(1);
             assertThat(balance(source)).isEqualByComparingTo("20"); assertThat(balance(target)).isEqualByComparingTo("90"); assertThat(movements()).isEqualTo(2);
@@ -104,7 +108,7 @@ class TransferOracleTest {
                 }
                 var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
                 long start=System.nanoTime();
-                mvc.perform(post("/api/transfers").with(user(customer)).with(csrf()).contentType("application/json")
+                mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json")
                     .content("{\"sourceAccountId\":\""+source+"\",\"targetAccountId\":\""+target+"\",\"amount\":\"1\"}"))
                     .andExpect(status().isConflict());
                 assertThat(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime()-start)).isBetween(4L,10L);
@@ -116,13 +120,13 @@ class TransferOracleTest {
         String body="{\"sourceAccountId\":\""+source+"\",\"targetAccountId\":\""+target+"\",\"amount\":\"1.00\"}";
         var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
         var admin=new AppUserDetails(new UserDto(owner,username,"Test","ADMIN"),"");
-        mvc.perform(post("/api/transfers").with(csrf()).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
-        mvc.perform(post("/api/transfers").with(user(admin)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isForbidden());
-        mvc.perform(post("/api/transfers").with(user(customer)).contentType("application/json").content(body)).andExpect(status().isForbidden());
-        mvc.perform(post("/api/transfers").with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\""+target+"\"","\""+foreign+"\""))).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/transfers").with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\"1.00\"","1.00"))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(csrf()).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(admin)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\""+target+"\"","\""+foreign+"\""))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body.replace("\"1.00\"","1.00"))).andExpect(status().isBadRequest());
         assertThat(movements()).isZero(); assertThat(balance(source)).isEqualByComparingTo("100");
-        mvc.perform(post("/api/transfers").with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isOk());
         assertThat(movements()).isEqualTo(2);
     }
     @Test void movementsOwnershipEmptyTransferAndLimit() throws Exception {
@@ -136,7 +140,7 @@ class TransferOracleTest {
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("Hesap bulunamadı."));
         }
         mvc.perform(get(url).with(user(customer))).andExpect(status().isOk()).andExpect(content().json("[]"));
-        service.transfer(owner,request("25.50"));
+        service.transfer(owner,UUID.randomUUID().toString(),request("25.50"));
         mvc.perform(get(url).with(user(customer))).andExpect(status().isOk())
             .andExpect(jsonPath("$[0].direction").value("DEBIT")).andExpect(jsonPath("$[0].amount").value("25.50"))
             .andExpect(jsonPath("$[0].balanceAfter").value("74.50"))
@@ -176,5 +180,119 @@ class TransferOracleTest {
         mvc.perform(get("/api/accounts/"+id+"/movements").with(user(customer))).andExpect(status().isOk()).andExpect(content().json("[]"));
         mvc.perform(get("/api/accounts/"+id).with(user(other))).andExpect(status().isNotFound());
         mvc.perform(get("/api/accounts").with(user(admin))).andExpect(status().isForbidden());
-        mvc.perform(post("/api/transfers").with(user(admin)).with(csrf()).contentType("application/json").content("{}")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",UUID.randomUUID().toString()).with(user(admin)).with(csrf()).contentType("application/json").content("{}")).andExpect(status().isForbidden());
+    }    @Test void createsCustomerAndRealLoginThenRenamesWithoutOtherChanges() throws Exception {
+        String login=username+"_new";
+        String password=" " + UUID.randomUUID() + " "; // Yalnız izole testin geçici parolası.
+        try {
+            var customer=adminService.createUser(new com.hesaplab.admin.AdminService.NewUser(" "+login+" "," New name ",password));
+            assertThat(customer.role()).isEqualTo("CUSTOMER");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM accounts WHERE owner_user_id=?",Integer.class,customer.id())).isZero();
+            String hash=jdbc.queryForObject("SELECT password_hash FROM app_users WHERE id=?",String.class,customer.id());
+            assertThat(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().matches(password,hash)).isTrue();
+            var result=mvc.perform(post("/api/auth/login").with(csrf()).param("username",login).param("password",password)).andReturn();
+            assertThat(result.getResponse().getStatus()).isEqualTo(200);
+            assertThat(result.getResponse().getContentAsString()).doesNotContain("password","hash",password);
+            var session=(org.springframework.mock.web.MockHttpSession)result.getRequest().getSession();
+            mvc.perform(get("/api/accounts").session(session)).andExpect(status().isOk()).andExpect(content().json("[]"));
+            var admin=new AppUserDetails(new UserDto(owner,username,"Test","ADMIN"),"");
+            var beforeUser=jdbc.queryForMap("SELECT * FROM app_users WHERE id=?",customer.id());
+            mvc.perform(patch("/api/admin/users/"+customer.id()).with(user(admin)).with(csrf()).contentType("application/json")
+                .content("{\"name\":\"Changed\",\"username\":\"hacked\",\"role\":\"ADMIN\",\"password\":\"hacked\"}")).andExpect(status().isOk());
+            var afterUser=jdbc.queryForMap("SELECT * FROM app_users WHERE id=?",customer.id());
+            beforeUser.remove("DISPLAY_NAME");afterUser.remove("DISPLAY_NAME");
+            assertThat(beforeUser.equals(afterUser)).isTrue();
+            // Oturumdaki principal görünen adı, yeniden girişe kadar eski kalır.
+            mvc.perform(get("/api/auth/me").session(session)).andExpect(jsonPath("$.name").value("New name"));
+            var beforeAccount=jdbc.queryForMap("SELECT * FROM accounts WHERE id=?",source);
+            var movements=jdbc.queryForList("SELECT * FROM account_movements ORDER BY id");
+            mvc.perform(patch("/api/admin/accounts/"+source).with(user(admin)).with(csrf()).contentType("application/json")
+                .content("{\"name\":\"Renamed\",\"ownerId\":\""+foreignOwner+"\",\"balance\":999,\"currency\":\"USD\"}")).andExpect(status().isOk());
+            var afterAccount=jdbc.queryForMap("SELECT * FROM accounts WHERE id=?",source);
+            beforeAccount.remove("NAME");afterAccount.remove("NAME");assertThat(afterAccount).isEqualTo(beforeAccount);
+            assertThat(jdbc.queryForList("SELECT * FROM account_movements ORDER BY id")).isEqualTo(movements);
+            session.invalidate();
+        } finally {jdbc.update("DELETE FROM app_users WHERE username=?",login);}
+    }
+    @Test void customerValidationPasswordBoundariesAndConcurrentUsername() throws Exception {
+        String login=username+"_limits";
+        for(String password:List.of("x".repeat(14),"x".repeat(73),"é".repeat(37),"😀".repeat(19))) {
+            assertThatThrownBy(()->adminService.createUser(new com.hesaplab.admin.AdminService.NewUser(login,"Test",password))).isInstanceOf(com.hesaplab.admin.AdminService.InvalidAccount.class);
+        }
+        for(String password:List.of("x".repeat(15),"x".repeat(72),"é".repeat(36),"😀".repeat(18))) {
+            try {adminService.createUser(new com.hesaplab.admin.AdminService.NewUser(login,"Test",password));}
+            finally {jdbc.update("DELETE FROM app_users WHERE username=?",login);}
+        }
+        for(String invalid:List.of("ab","X_name","a-b","üser","x".repeat(51))) {
+            assertThatThrownBy(()->adminService.createUser(new com.hesaplab.admin.AdminService.NewUser(invalid,"Test","x".repeat(15)))).isInstanceOf(com.hesaplab.admin.AdminService.InvalidAccount.class);
+        }
+        for(String invalid:List.of(" ","x".repeat(101))) {
+            assertThatThrownBy(()->adminService.createUser(new com.hesaplab.admin.AdminService.NewUser(login,invalid,"x".repeat(15)))).isInstanceOf(com.hesaplab.admin.AdminService.InvalidAccount.class);
+        }
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            var admin=new AppUserDetails(new UserDto(owner,username,"Test","ADMIN"),"");
+            String body=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",login,"name","Concurrent","password",UUID.randomUUID().toString(),"role","ADMIN"));
+            Callable<Integer> create=()->mvc.perform(post("/api/admin/users").with(user(admin)).with(csrf()).contentType("application/json").content(body)).andReturn().getResponse().getStatus();
+            var results=pool.invokeAll(List.of(create,create));
+            assertThat(List.of(results.get(0).get(),results.get(1).get())).containsExactlyInAnyOrder(201,409);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM app_users WHERE username=? AND role='CUSTOMER'",Integer.class,login)).isEqualTo(1);
+        } finally {pool.shutdownNow();jdbc.update("DELETE FROM app_users WHERE username=?",login);}
+    }
+    @Test void adminWriteSecurityAndRenameValidation() throws Exception {
+        var admin=new AppUserDetails(new UserDto(owner,username,"Test","ADMIN"),"");
+        var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
+        String body=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("username",username+"_blocked","name","Test","password",UUID.randomUUID().toString()));
+        mvc.perform(post("/api/admin/users").with(csrf()).contentType("application/json").content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/admin/users").with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/users").with(user(admin)).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        String adminId=jdbc.queryForObject("SELECT id FROM app_users WHERE username='demo_admin'",String.class);
+        for(String path:List.of("/api/admin/users/"+owner,"/api/admin/accounts/"+source)) {
+            mvc.perform(patch(path).with(csrf()).contentType("application/json").content("{\"name\":\"Name\"}")).andExpect(status().isUnauthorized());
+            mvc.perform(patch(path).with(user(customer)).with(csrf()).contentType("application/json").content("{\"name\":\"Name\"}")).andExpect(status().isForbidden());
+            mvc.perform(patch(path).with(user(admin)).contentType("application/json").content("{\"name\":\"Name\"}")).andExpect(status().isForbidden());
+            for(String invalid:List.of(" ","x".repeat(101))) mvc.perform(patch(path).with(user(admin)).with(csrf()).contentType("application/json")
+                .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("name",invalid)))).andExpect(status().isBadRequest());
+        }
+        mvc.perform(patch("/api/admin/users/"+adminId).with(user(admin)).with(csrf()).contentType("application/json").content("{\"name\":\"No\"}")).andExpect(status().isBadRequest());
+    }    @Test void replayEquivalentLostResponseAndConflict() throws Exception {
+        String key=UUID.randomUUID().toString();
+        var first=service.transfer(owner,key,request("80"));
+        var replay=service.transfer(owner,key,new TransferRequest("000"+source,"00"+target,"80.00"));
+        assertThat(replay).isEqualTo(first); // İlk yanıt kaybolsa da aynı kimlik/sonuç.
+        assertThat(balance(source)).isEqualByComparingTo("20");assertThat(movements()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_movements WHERE transfer_id=?",Integer.class,first.transferId())).isEqualTo(2);
+        var customer=new AppUserDetails(new UserDto(owner,username,"Test","CUSTOMER"),"");
+        String body=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(request("1"));
+        mvc.perform(post("/api/transfers").header("Idempotency-Key",key).with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isConflict());
+        mvc.perform(post("/api/transfers").with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/transfers").header("Idempotency-Key","bad").with(user(customer)).with(csrf()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
+        assertThat(movements()).isEqualTo(2);
+        // Gerçek UNIQUE hatasının dış transaction sınırında ele alınmasını zorla.
+        doReturn(Optional.empty()).doCallRealMethod().when(repository).find(owner,key);
+        assertThat(service.transfer(owner,key,request("80"))).isEqualTo(first);
+        assertThat(movements()).isEqualTo(2);
+    }
+    @Test void simultaneousSameKeyHasOneTransfer() throws Exception {
+        String key=UUID.randomUUID().toString();
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            Callable<TransferService.Result> call=()->service.transfer(owner,key,request("25.50"));
+            var results=pool.invokeAll(List.of(call,call));
+            assertThat(results.get(0).get()).isEqualTo(results.get(1).get());
+            assertThat(movements()).isEqualTo(2);assertThat(balance(source)).isEqualByComparingTo("74.50");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isEqualTo(1);
+        } finally {pool.shutdownNow();}
+    }
+    @Test void failedWriteRollsBackTransferAndKeyCanBeRetried() {
+        String key=UUID.randomUUID().toString();
+        doAnswer(call->{jdbc.update("INSERT INTO account_movements(account_id,direction,amount,balance_after) VALUES (?,'INVALID',1,1)",target);return null;})
+            .when(repository).movement(eq(new BigDecimal(target)),eq("CREDIT"),any(),any(),any());
+        assertThatThrownBy(()->service.transfer(owner,key,request("25.5"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM transfers WHERE user_id=?",Integer.class,owner)).isZero();
+        assertThat(movements()).isZero();assertThat(balance(source)).isEqualByComparingTo("100");
+        reset(repository);
+        var result=service.transfer(owner,key,request("25.50"));
+        assertThat(result.transferId()).isNotBlank();assertThat(movements()).isEqualTo(2);
     }}

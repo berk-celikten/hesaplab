@@ -19,6 +19,9 @@ Eski checking/savings/checking-02 ve customer-01/02 demo kimliklerine sabit eşl
 erDiagram
     app_users ||--o{ accounts : owns
     accounts ||--o{ account_movements : records
+    app_users ||--o{ transfers : requests
+    accounts ||--o{ transfers : participates
+    transfers |o--o{ account_movements : links
     app_users {
         NUMBER id PK
         VARCHAR2 username UK
@@ -33,9 +36,20 @@ erDiagram
         NUMBER balance
         VARCHAR2 currency
     }
+    transfers {
+        NUMBER id PK
+        NUMBER user_id FK
+        VARCHAR2 idempotency_key
+        NUMBER source_account_id FK
+        NUMBER target_account_id FK
+        NUMBER amount
+        VARCHAR2 currency
+        TIMESTAMP_WITH_TIME_ZONE created_at
+    }
     account_movements {
         NUMBER id PK
         NUMBER account_id FK
+        NUMBER transfer_id FK
         VARCHAR2 direction
         NUMBER amount
         NUMBER balance_after
@@ -138,3 +152,5 @@ Bu uygulama ve kontroller, Berk'in konuyu öğrendiği anlamına gelmez.
 Yönetici 06/07/08 ve ilgili belgeleri ayrıca inceledi. 08 sorgusunu SQL*Plus ile çalıştırıp üç açılış kaydını, tutar/sahiplik/zaman alanlarını doğruladı; seed'in COMMIT içermeyen tekrarını savepoint/rollback ile kontrol etti: 0 ek kayıt, son toplam 3, çıkış 0. Metadata'da 7 sütun ve 11 etkin/doğrulanmış kısıt görüldü; geliştiricinin negatif denemeleri ayrıca tekrarlanmadı.
 Geliştirici açık diyagramın kaydedilmemiş değişiklik uyarısında yeniden yüklemeyi iptal etmişti. Yönetici asıl sekmeyi koruyarak ayrı inceleme kopyasını açtı; üç tablo ve iki FK ilişkisi Fit to Screen ile görsel doğrulandı. Kullanıcının unsaved sorgusu ve asıl diyagramı korundu. Statik PNG hâlâ eski iki tabloyu gösterir.
 Kaynak: [Oracle 19c SYSTIMESTAMP](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SYSTIMESTAMP.html).
+## 13.1–13.4: tamamlanmış transfer ve replay
+13_transfer_idempotency.sql bir kez uygulandı. UNIQUE(user_id,idempotency_key), anahtarı kullanıcı kapsamında benzersiz tutar. Kaynak/hedef FK'leri accounts'a, user_id app_users'a bağlıdır; gerçek sahiplik/rol backend kontrolüdür. amount NUMBER(15,2)>0, para TRY, kaynak/hedef farklıdır. Transfer kaydı ancak iki bakiye/iki hareketle birlikte commit olur; başarısız işlem kayıt bırakmaz. account_movements.transfer_id nullable FK: eski açılış kayıtları NULL, yeni transferin DEBIT/CREDIT çifti aynı transferi gösterir. Kaynak/hedef ikisi de accounts'a bağlıdır; Mermaid sadeleştirilmiş çizgisi iki FK'yi temsil eder. Eski dgm/PNG bu yeni tabloyu/sütunu içermez; güncel model bu SQL ve Mermaid'dir. Kimliklerde rollback sonrası boşluk normaldir. Anahtar arşivleme/süre sonu henüz yoktur. Yeni modelin hazırlanması öğrenme kanıtı değildir.

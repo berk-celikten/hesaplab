@@ -22,6 +22,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
   const [isSending, setIsSending] = useState(false)
   const [transferMessage, setTransferMessage] = useState('')
   const sendGuard = useRef(false)
+  const [retryTransfer, setRetryTransfer] = useState(null)
   const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
@@ -151,21 +152,24 @@ export default function CustomerApp({ user, onUnauthorized }) {
       setTransferDraft(null)
       return
     }
-    setTransferDraft({ sourceAccountId, targetAccountId, amountText })
+    if (retryTransfer) return
+    setTransferDraft({ sourceAccountId, targetAccountId, amountText, idempotencyKey: crypto.randomUUID() })
   }
 
-  async function handleTransfer() {
-    if (!transferDraft || sendGuard.current) return
+  async function handleTransfer(retry = false) {
+    const draft = retry ? retryTransfer : transferDraft
+    if (!draft || sendGuard.current) return
     sendGuard.current = true
     setIsSending(true)
     setTransferMessage('')
     const version = ++requestVersion.current.version // Önceki GET sonuçları artık kullanılamaz.
     setIsLoadingAccounts(false)
-    const draft = transferDraft
+    setRetryTransfer(draft)
     setTransferDraft(null) // Sonucu belirsiz isteği de aynı taslakla tekrar göndermeyin.
     try {
       await sendTransfer(draft)
       if (version !== requestVersion.current.version) return
+      setRetryTransfer(null)
       setTransferMessage('Transfer tamamlandı.')
       setAccountsError('')
       try {
@@ -180,6 +184,7 @@ export default function CustomerApp({ user, onUnauthorized }) {
     } catch (error) {
       if (version !== requestVersion.current.version) return
       if (error.status === 401) { onUnauthorized(); return }
+      if (error.status >= 400 && error.status < 500 && error.status !== 409) setRetryTransfer(null)
       setTransferMessage(error.status === 0 || error.status >= 500
         ? 'İşlemin sonucu doğrulanamadı. Tekrar göndermeden önce hesapları kontrol edin.' : error.message)
     } finally {
@@ -205,6 +210,11 @@ export default function CustomerApp({ user, onUnauthorized }) {
               onClick={() => handleReloadAccounts(false)}>Tekrar dene</button>
           </section>
         )}
+        {retryTransfer && !isSending && <section aria-label="Bekleyen transfer isteği">
+          <p>Bekleyen istek: {retryTransfer.amountText} TL. Kaynak {retryTransfer.sourceAccountId}, hedef {retryTransfer.targetAccountId}. Aynı içerik ve anahtar korunuyor.</p>
+          <button className="balance-toggle" type="button" onClick={() => handleTransfer(true)}>Aynı isteği tekrar dene</button>
+          <p>Yeni taslaktan önce bu isteğin sonucunu doğrulayın. Sayfa yenilemeyin.</p>
+        </section>}
         <Routes>
           <Route path="/" element={<Navigate to="/hesaplar" replace />} />
           <Route path="/hesaplar" element={
