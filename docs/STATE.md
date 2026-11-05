@@ -1,5 +1,6 @@
 # Mevcut durum
 ## Konum
+- README16.3: Başlığa kısa İngilizce proje özeti eklendi; Türkçe içerik korundu. GitHub metni ve README diff'i doğrulandı; yalnız belge değişti, test/build/migration çalıştırılmadı. Öğrenme alt adımı16.3 sürüyor.
 - README16.3: HesapLab tanıtımı yeniden düzenlendi;9 galeri ekranı/tam admin görünümü,hero,mimari ve6 tablo ER eklendi. Eski README docs/DEVELOPMENT_HISTORY.md içinde korundu;RUNBOOK bağlantısı eklendi. Görsel/link/diff/sır kontrolü yapıldı;58 kaynak dosyası ve6 tablo tüm-sütun parmak izi aynı. Mevcut servisler açıldı;test/build/migration tekrarlanmadı.
 - Güncel16.3: Berk önceki iki PDF yerine görsellerle mülakat çalışması istedi. Repo dışı HesapLab-Gorsel-Mulakat-Provalari.pdf hazır:51 yatay sayfa,48 açıklamalı çizim/ana soru ve96 takip sorusu;cevap boşluğu ve hemen altında örnek cevap.58 kaynak dosyası hash eşleşti;PDF metin/yerleşim ve bütün sayfaların görsel kontrolü geçti. Uygulama/test/build/DB/migration/push yok;öğrenme teyidi yok.
 - Öğretim tercihi: Görseli ana anlatım yap;oklar,rol ve hata sonucu kendi başına anlaşılabilsin. Terimleri temelden tanımla,tek transfer örneğini izle. MVC ile Controller-Service-Repository ayrımını koru;Model=Oracle diye eşleme. PDF okuma veya tek tur çalışmayla genel mülakat yeterliği garantisi verme.
