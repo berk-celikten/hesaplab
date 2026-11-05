@@ -2,7 +2,7 @@
 
 - JPG dosyaları 5 Kasım 2026 tarihinde çalışan yerel HesapLab uygulamasından alındı. Mevcut demo müşteri ve yönetici oturumları kullanıldı; yeni transfer/kullanıcı/hesap veya ad değişikliği yapılmadı.
 - login, accounts, account-details, transfer, recipient, receipt, admin/admin-accounts ve not-found gerçek ekran görüntüleridir. admin-full, yönetim sayfasının tamamıdır; diğer iki yönetim görseli aynı sayfanın üst ve alt bölümleridir.
-- Ekran görüntüleri tarayıcının mevcut dar görünümünde alındı. Galerideki görseller tam boy dosyaya bağlanır.
+- Ekran görüntüleri tarayıcının normal masaüstü görünümünde alındı. Galerideki görseller tam boy dosyaya bağlanır.
 - hero ve architecture açıklayıcı çizimlerdir. oracle-er altı tablonun SQL dosyalarına dayanan şema çizimidir; canlı tablo ekran görüntüsü değildir. Tablo/sütun adları canlı Oracle metadata sorgusuyla karşılaştırıldı.
 - Yalnız demo veriler görünür; parola, parola hash değeri, cookie, CSRF değeri veya yerel gizli ayarlar içermez.
 

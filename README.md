@@ -36,20 +36,20 @@ Aşağıdaki görseller çalışan yerel uygulamadan alınmıştır. Gösterilen
 
 <table>
   <tr>
-    <td width="50%"><strong>Giriş</strong><br><a href="docs/images/login.jpg"><img src="docs/images/login.jpg" alt="HesapLab kullanıcı adı ve parola giriş ekranı" width="100%"></a></td>
-    <td width="50%"><strong>Hesaplarım</strong><br><a href="docs/images/accounts.jpg"><img src="docs/images/accounts.jpg" alt="Müşterinin kendi hesapları, arama ve bakiye gizleme alanı" width="100%"></a></td>
+    <td valign="top" width="50%"><strong>Giriş</strong><br><a href="docs/images/login.jpg"><img src="docs/images/login.jpg" alt="HesapLab kullanıcı adı ve parola giriş ekranı" width="100%"></a></td>
+    <td valign="top" width="50%"><strong>Hesaplarım</strong><br><a href="docs/images/accounts.jpg"><img src="docs/images/accounts.jpg" alt="Müşterinin kendi hesapları, arama ve bakiye gizleme alanı" width="100%"></a></td>
   </tr>
   <tr>
-    <td><strong>Hesap ayrıntısı ve hareketler</strong><br><a href="docs/images/account-details.jpg"><img src="docs/images/account-details.jpg" alt="Hesap ayrıntısı ve giriş çıkış hareketleri" width="100%"></a></td>
-    <td><strong>Transfer taslağı ve ayrı onay</strong><br><a href="docs/images/transfer.jpg"><img src="docs/images/transfer.jpg" alt="Kaynak, hedef, tutar ve transferi gerçekleştir butonuyla taslak" width="100%"></a></td>
+    <td valign="top"><strong>Hesap ayrıntısı ve hareketler</strong><br><a href="docs/images/account-details.jpg"><img src="docs/images/account-details.jpg" alt="Hesap ayrıntısı ve giriş çıkış hareketleri" width="100%"></a></td>
+    <td valign="top"><strong>Transfer taslağı ve ayrı onay</strong><br><a href="docs/images/transfer.jpg"><img src="docs/images/transfer.jpg" alt="Kaynak, hedef, tutar ve transferi gerçekleştir butonuyla taslak" width="100%"></a></td>
   </tr>
   <tr>
-    <td><strong>Başka müşteriye alıcı doğrulama</strong><br><a href="docs/images/recipient.jpg"><img src="docs/images/recipient.jpg" alt="Demo hesap numarasıyla doğrulanan alıcı ve transfer taslağı" width="100%"></a></td>
-    <td><strong>Worker’ın hazırladığı metin dekontu</strong><br><a href="docs/images/receipt.jpg"><img src="docs/images/receipt.jpg" alt="Mevcut başarılı transferin READY durumundaki metin dekontu" width="100%"></a></td>
+    <td valign="top"><strong>Başka müşteriye alıcı doğrulama</strong><br><a href="docs/images/recipient.jpg"><img src="docs/images/recipient.jpg" alt="Demo hesap numarasıyla doğrulanan alıcı ve transfer taslağı" width="100%"></a></td>
+    <td valign="top"><strong>Worker’ın hazırladığı metin dekontu</strong><br><a href="docs/images/receipt.jpg"><img src="docs/images/receipt.jpg" alt="Mevcut başarılı transferin READY durumundaki metin dekontu" width="100%"></a></td>
   </tr>
   <tr>
-    <td><strong>Yönetim — müşteri ve ad düzenleme</strong><br><a href="docs/images/admin-full.jpg"><img src="docs/images/admin.jpg" alt="Yönetici müşteri oluşturma ve ad düzenleme formları" width="100%"></a></td>
-    <td><strong>Yönetim — kullanıcılar ve hesap açma</strong><br><a href="docs/images/admin-accounts.jpg"><img src="docs/images/admin-accounts.jpg" alt="Yönetici kullanıcı ve hesap listeleri ile sıfır bakiyeli hesap açma formu" width="100%"></a></td>
+    <td valign="top"><strong>Yönetim — müşteri ve ad düzenleme</strong><br><a href="docs/images/admin-full.jpg"><img src="docs/images/admin.jpg" alt="Yönetici müşteri oluşturma ve ad düzenleme formları" width="100%"></a></td>
+    <td valign="top"><strong>Yönetim — kullanıcılar ve hesap açma</strong><br><a href="docs/images/admin-accounts.jpg"><img src="docs/images/admin-accounts.jpg" alt="Yönetici kullanıcı ve hesap listeleri ile sıfır bakiyeli hesap açma formu" width="100%"></a></td>
   </tr>
 </table>
 

@@ -29,5 +29,5 @@
 - State/yenileme,ad-value/URL kimliği,veri kopyası,component sahipliği,effect/cleanup/StrictMode pekiştirilecek.
 - Java/OOP,Oracle transaction,güvenlik,asenkron/dağıtık çalışma ve bağımsız kod yazımı doğrulanmış sayılmaz.
 ## Yayın ve sonraki iş
-- Uygulama kodu son yayını60808e0/ecbb6d9;görselli README/RUNBOOK/geliştirme arşivi ve görseller ayrı belge yayını kapsamıdır. LEARNING_PLAN önceki yerel değişiklikleri bu yayın dışında korunur.
+- Uygulama kodu son yayını60808e0/ecbb6d9;görselli README/RUNBOOK/geliştirme arşivi ve görseller GitHub belge yayınıdır. LEARNING_PLAN önceki yerel değişiklikleri bu yayın dışında korunur.
 - 16.2: Berk bakiye düşüşünü ve asenkron worker rolünü söyledi; genel yeterlik doğrulanmadı. Sonraki16.3 başarılı transfer/başarısız dekont ayrımı ve dekontun React ekranına gelişi; yeni geliştirme yok.
