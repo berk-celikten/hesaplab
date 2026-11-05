@@ -1,5 +1,13 @@
 # HesapLab
 
+## English overview
+
+**HesapLab is a banking learning project built with Java 21, Spring Boot, React, Oracle and RabbitMQ.** It includes customer and admin screens, account balances, transaction history and transfers with session-based authentication and account ownership checks.
+
+The React frontend connects to Spring Boot REST APIs, with Spring JDBC handling Oracle persistence and database transactions. A separate Java worker generates text receipts asynchronously through RabbitMQ. The application uses demo data and was developed as a hands-on learning project with AI coding support.
+
+## Türkçe dokümantasyon
+
 ![HesapLab — React, Spring Boot, Oracle ve RabbitMQ ile bankacılık temalı eğitim projesi](docs/images/hero.png)
 
 **Hesapları görüntüleme, güvenli transfer ve arka planda dekont hazırlama akışını uçtan uca inceleyen bir eğitim projesi.**
